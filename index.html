@@ -1,0 +1,997 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light">
+<title>会員制バー 顧客管理 デモ</title>
+<style>
+:root{
+  color-scheme: light;
+  --bg:#f7f5f2; --card:#ffffff; --ink:#24201d; --sub:#6b625a; --line:#e6e0d8;
+  --brand:#8c2f39; --brand-d:#6e2430; --brand-l:#f8ecee; --gold:#a8843f;
+  --red:#c62828; --red-l:#fdecea; --orange:#b45f00; --orange-l:#fff4e0;
+  --green:#1e7e3e; --green-l:#e6f4ea; --gray-l:#f0ede9; --blue:#2f5f9e; --blue-l:#e9f0fa;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:"Hiragino Sans","Noto Sans JP","Yu Gothic UI","Meiryo",sans-serif;font-size:16px;line-height:1.6;overflow-x:hidden}
+a{color:var(--brand)}
+button,input,select,textarea{font:inherit;color:inherit}
+.demo-bar{background:#fff8d6;border-bottom:1px solid #f0dc8a;font-size:13px;padding:6px 16px;text-align:center;color:#6b5600}
+header{background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:10}
+.hd{max-width:1180px;margin:0 auto;display:flex;align-items:center;gap:16px;padding:10px 16px;flex-wrap:wrap}
+.logo{font-weight:700;font-size:18px;display:flex;align-items:center;gap:8px;white-space:nowrap}
+.logo .mk{width:30px;height:30px;border-radius:8px;background:var(--brand);color:#fff;display:grid;place-items:center;font-size:15px;box-shadow:inset 0 -3px 0 var(--gold)}
+nav{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+nav a{text-decoration:none;color:var(--sub);padding:8px 12px;border-radius:8px;font-weight:600;font-size:15px}
+nav a.on{background:var(--brand-l);color:var(--brand-d)}
+nav a:hover{background:var(--gray-l)}
+.who{font-size:13px;color:var(--sub);display:flex;align-items:center;gap:8px;white-space:nowrap}
+.role{display:inline-block;padding:2px 8px;border-radius:99px;font-size:12px;font-weight:700}
+.role.owner{background:var(--brand-l);color:var(--brand-d)}.role.staff{background:var(--gray-l);color:var(--sub)}
+@media(max-width:860px){
+  header{position:static}
+  .hd{gap:8px 12px}
+  .who{margin-left:auto}
+  nav{order:3;flex:0 0 100%;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:2px}
+  nav a{white-space:nowrap;flex:0 0 auto}
+}
+@media(max-width:480px){.who #whoName{display:none}}
+main{max-width:1180px;margin:0 auto;padding:20px 16px 60px}
+h1{font-size:22px;margin:4px 0 16px}
+h2{font-size:18px;margin:0 0 12px}
+h3{font-size:16px;margin:0 0 8px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px;margin-bottom:16px}
+.grid{display:grid;gap:16px}.grid>*{min-width:0}
+.g4{grid-template-columns:repeat(4,1fr)}.g3{grid-template-columns:repeat(3,1fr)}.g2{grid-template-columns:1fr 1fr}
+@media(max-width:860px){.g4,.g3{grid-template-columns:1fr 1fr}.g2{grid-template-columns:1fr}}
+.kpi{padding:16px;margin-bottom:0}
+.kpi .lb{font-size:13px;color:var(--sub);font-weight:600}
+.kpi .v{font-size:26px;font-weight:700;line-height:1.3}
+.kpi .s{font-size:13px;color:var(--sub)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 18px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:600;text-decoration:none;color:var(--ink)}
+.btn:hover{background:var(--gray-l)}
+.btn.pri{background:var(--brand);border-color:var(--brand);color:#fff}.btn.pri:hover{background:var(--brand-d)}
+.btn.warn{background:var(--red);border-color:var(--red);color:#fff}
+.btn.danger{color:var(--red);border-color:#f3b8b3}
+.btn.sm{min-height:36px;padding:0 12px;font-size:14px}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end}
+.fld{display:flex;flex-direction:column;gap:4px;min-width:0}
+.fld label{font-size:14px;font-weight:600;color:var(--sub)}
+.fld .req{color:var(--red);font-size:12px;margin-left:4px}
+input[type=text],input[type=email],input[type=password],input[type=number],input[type=date],input[type=time],input[type=search],input[type=tel],select,textarea{min-height:44px;border:1px solid #cfc7bd;border-radius:10px;padding:8px 12px;background:#fff;width:100%}
+textarea{min-height:80px}
+input:focus,select:focus,textarea:focus{outline:3px solid #ead0d4;border-color:var(--brand)}
+.form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 16px}
+.form .full{grid-column:1/-1}
+@media(max-width:640px){.form{grid-template-columns:1fr}}
+.tbl-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:#fff}
+table{border-collapse:collapse;width:100%;font-size:15px}
+th,td{padding:10px 12px;border-bottom:1px solid var(--line);text-align:left;white-space:nowrap}
+th{background:#faf8f5;color:var(--sub);font-size:13px;font-weight:700}
+tr:last-child td{border-bottom:0}
+tbody tr.clk{cursor:pointer}tbody tr.clk:hover{background:#fbf6f6}
+td.num,th.num{text-align:right}
+.badge{display:inline-block;padding:2px 10px;border-radius:99px;font-size:13px;font-weight:700}
+.b-red{background:var(--red-l);color:var(--red)}.b-orange{background:var(--orange-l);color:var(--orange)}.b-green{background:var(--green-l);color:var(--green)}.b-gray{background:var(--gray-l);color:var(--sub)}.b-blue{background:var(--blue-l);color:var(--blue)}
+.up{color:var(--green);font-weight:700}.down{color:var(--red);font-weight:700}
+.muted{color:var(--sub);font-size:14px}
+.seg{display:flex;flex-wrap:wrap;gap:8px}
+.seg button{min-height:44px;padding:0 16px;border-radius:10px;border:1px solid #cfc7bd;background:#fff;cursor:pointer;font-weight:600}
+.seg button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:#24201d;color:#fff;padding:12px 20px;border-radius:10px;font-weight:600;z-index:50;box-shadow:0 6px 20px rgba(0,0,0,.18);max-width:calc(100% - 32px)}
+.err{background:var(--red-l);color:var(--red);border:1px solid #f3b8b3;padding:10px 14px;border-radius:10px;font-weight:600;margin-bottom:12px}
+.info{background:var(--blue-l);color:var(--blue);padding:10px 14px;border-radius:10px;font-size:14px;margin-bottom:12px}
+.login-wrap{max-width:440px;margin:40px auto}
+.acct{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px;border:1px solid var(--line);border-radius:10px;margin-top:8px}
+.dl{display:grid;grid-template-columns:130px 1fr;gap:8px 12px;font-size:15px}
+.dl dt{color:var(--sub);font-weight:600}.dl dd{margin:0;min-width:0;overflow-wrap:anywhere}
+footer{max-width:1180px;margin:0 auto;padding:0 16px 40px;font-size:13px;color:var(--sub);display:flex;gap:12px;flex-wrap:wrap;justify-content:space-between}
+.linkbtn{background:none;border:0;color:var(--brand);cursor:pointer;text-decoration:underline;padding:0}
+/* 受付 */
+.scanbox{display:flex;gap:10px;flex-wrap:wrap}
+.scanbox input{flex:1 1 260px;font-size:20px;min-height:56px;letter-spacing:.04em}
+.scanbox .btn{min-height:56px}
+.mcard{border:2px solid var(--line);border-radius:14px;padding:16px;margin-top:14px}
+.mcard.alert{border-color:var(--red);background:#fffafa}
+.mcard.soon{border-color:#f2c27c}
+.mname{font-size:24px;font-weight:700;line-height:1.3;overflow-wrap:anywhere}
+.alertbox{background:var(--red);color:#fff;border-radius:10px;padding:12px 16px;font-weight:700;font-size:18px;margin:10px 0}
+.alertbox small{display:block;font-weight:500;font-size:14px;opacity:.95}
+.soonbox{background:var(--orange-l);color:var(--orange);border-radius:10px;padding:10px 14px;font-weight:700;margin:10px 0}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:44px;height:44px;border-radius:10px;border:1px solid #cfc7bd;background:#fff;font-size:20px;cursor:pointer}
+.stepper output{min-width:36px;text-align:center;font-size:20px;font-weight:700}
+.bars{display:flex;align-items:flex-end;gap:3px;height:140px;border-bottom:1px solid var(--line);padding-top:8px}
+.bars .b{flex:1;background:var(--brand);border-radius:3px 3px 0 0;min-width:2px;position:relative}
+.bars .b.zero{background:var(--gray-l)}
+.barlbl{display:flex;gap:3px;font-size:11px;color:var(--sub)}
+.barlbl span{flex:1;text-align:center;min-width:0;overflow:hidden}
+.ratio{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--gray-l)}
+.ratio .m{background:#4f6d9a}.ratio .f{background:#c4637a}
+.cam{position:fixed;inset:0;background:rgba(0,0,0,.75);display:grid;place-items:center;z-index:60;padding:16px}
+.cam .in{background:#fff;border-radius:14px;padding:16px;max-width:520px;width:100%}
+.cam video{width:100%;border-radius:10px;background:#000}
+.bc{display:block;width:100%;height:70px}
+/* 会員証シール */
+.sheet{display:grid;grid-template-columns:repeat(2,86mm);gap:6mm;justify-content:center}
+.sticker{width:86mm;height:54mm;border:1px dashed #bbb;border-radius:3mm;padding:4mm 5mm;display:flex;flex-direction:column;justify-content:space-between;background:#fff;color:#000}
+.sticker .t{font-size:10pt;font-weight:700;letter-spacing:.05em}
+.sticker svg{width:100%;height:20mm}
+.sticker .no{font-size:13pt;font-weight:700;text-align:center;letter-spacing:.15em}
+@media(max-width:640px){.sheet{grid-template-columns:1fr}.sticker{width:100%;max-width:86mm;margin:0 auto}}
+@media(max-width:640px){td.wrap-sm{white-space:normal;min-width:5em}.dl{grid-template-columns:100px 1fr}.hide-sm{display:none}.card{padding:14px}.kpi .v{font-size:20px!important}th,td{padding:10px 8px}.mname{font-size:20px}}
+@media print{
+  .demo-bar,header,footer,.noprint{display:none!important}
+  body,html{background:#fff}
+  main{padding:0;max-width:none}
+  .sticker{border:1px dashed #ccc;break-inside:avoid}
+}
+</style>
+</head>
+<body>
+<div class="demo-bar">これは操作を確かめていただくためのデモです。表示されている店名・人名・会員はすべて架空です。入力した内容はこのブラウザの中にだけ保存されます。</div>
+<header id="hdr" hidden>
+  <div class="hd">
+    <div class="logo"><span class="mk">B</span>会員制バー 顧客管理</div>
+    <nav id="nav"></nav>
+    <div class="who"><span id="whoName"></span><span id="whoRole" class="role"></span><button class="btn sm" id="logout">ログアウト</button></div>
+  </div>
+</header>
+<main id="app"></main>
+<footer id="ftr"><span id="todayLbl"></span><button class="linkbtn" id="resetData">デモのデータを最初の状態に戻す</button></footer>
+
+<script>
+"use strict";
+/* ===== 基本 ===== */
+const KEY = "bar_member_demo_v1";
+const qs = new URLSearchParams(location.search);
+const TODAY = (qs.get("today") && /^\d{4}-\d{2}-\d{2}$/.test(qs.get("today"))) ? qs.get("today") : ymd(new Date());
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+function esc(s){return String(s ?? "").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+function z2(n){return String(n).padStart(2,"0");}
+function ymd(d){return d.getFullYear()+"-"+z2(d.getMonth()+1)+"-"+z2(d.getDate());}
+function pd(s){const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d);}
+function addDays(s,n){const d=pd(s);d.setDate(d.getDate()+n);return ymd(d);}
+function addMonths(s,n){const d=pd(s);const day=d.getDate();d.setDate(1);d.setMonth(d.getMonth()+n);const last=new Date(d.getFullYear(),d.getMonth()+1,0).getDate();d.setDate(Math.min(day,last));return ymd(d);}
+function addYears(s,n){return addMonths(s,12*n);}
+function diffDays(a,b){return Math.round((pd(a)-pd(b))/86400000);}
+function yen(n){return Number(n||0).toLocaleString("ja-JP")+"円";}
+function jdate(s){if(!s)return "";const [y,m,d]=s.split("-");return `${y}/${m}/${d}`;}
+const WD = ["日","月","火","水","木","金","土"];
+function jdw(s){return jdate(s)+"（"+WD[pd(s).getDay()]+"）";}
+function weekStart(s){const dow=(pd(s).getDay()+6)%7;return addDays(s,-dow);}
+function monthStart(s){return s.slice(0,8)+"01";}
+function nowHM(){const d=new Date();return z2(d.getHours())+":"+z2(d.getMinutes());}
+function isDate(s){if(!/^\d{4}-\d{2}-\d{2}$/.test(s||""))return false;return ymd(pd(s))===s;}
+function toast(msg){const t=document.createElement("div");t.className="toast";t.textContent=msg;document.body.appendChild(t);setTimeout(()=>t.remove(),2600);}
+function rng(seed){return()=>{seed|=0;seed=seed+0x6D2B79F5|0;let t=Math.imul(seed^seed>>>15,1|seed);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+
+/* ===== 見本データ（架空） ===== */
+const SUR = [["甲野","こうの"],["乙野","おつの"],["丙山","へいやま"],["丁田","ていだ"],["戊川","ぼかわ"],["己原","きはら"],["庚谷","こうや"],["辛島","からしま"],["壬生","みぶ"],["癸本","きもと"],["子安","こやす"],["丑山","うしやま"],["寅田","とらだ"],["卯月","うづき"],["辰巳","たつみ"],["午田","うまだ"],["未森","ひつじもり"],["申川","さるかわ"],["酉井","とりい"],["戌亥","いぬい"]];
+const MALE = [["健","けん"],["翔","しょう"],["大輔","だいすけ"],["拓也","たくや"],["誠","まこと"],["亮","りょう"],["隆","たかし"],["浩二","こうじ"],["直樹","なおき"],["和也","かずや"],["悠真","ゆうま"],["蓮","れん"],["修","おさむ"],["哲也","てつや"]];
+const FEMALE = [["美咲","みさき"],["彩","あや"],["結衣","ゆい"],["真由","まゆ"],["香織","かおり"],["愛","あい"],["優子","ゆうこ"],["里奈","りな"],["葵","あおい"],["さくら","さくら"]];
+const BOTTLES = ["シングルモルト 12年","ブレンデッド ウイスキー","バーボン","芋焼酎","麦焼酎","ブランデー VSOP","ジン","日本酒（四合瓶）"];
+const PAYS = ["現金","カード","電子マネー"];
+const NAME_NO = n => "M"+String(n).padStart(4,"0");
+
+function seedData(){
+  const r = rng(5347927), pick = a => a[Math.floor(r()*a.length)], between = (a,b) => Math.floor(a + r()*(b-a+1));
+  const users = [
+    {id:1,name:"甲野 太郎",email:"owner@example.com",role:"owner"},
+    {id:2,name:"乙野 花子",email:"staff@example.com",role:"staff"},
+    {id:3,name:"丙山 一郎",email:"staff2@example.com",role:"staff"}
+  ];
+  const settings = {feeAmount:10000, bottleMonths:6};
+  const members = [], fees = [];
+  let fid = 0;
+  for(let i=0;i<120;i++){
+    const male = r() < 0.68;
+    const s = pick(SUR), g = pick(male?MALE:FEMALE);
+    let joined = addDays(TODAY,-between(12,1080));
+    members.push({id:i+1,no:NAME_NO(i+1),name:`${s[0]} ${g[0]}`,kana:`${s[1]} ${g[1]}`,gender:male?"男性":"女性",
+      birth:`${between(1960,2001)}-${z2(between(1,12))}-${z2(between(1,28))}`,tel:`090-0000-${String(1000+i)}`,email:"",
+      joined,feeUntil:"",referrer:i>5&&r()<0.35?NAME_NO(between(1,i)):"",memo:"",w:Math.pow(r(),2.2)+0.02});
+  }
+  // 見せ場をはっきり作る：期限切れ・30日以内・誕生月
+  const setFee = (idx, untilOffset, yearsAgo) => { const m = members[idx]; m.joined = addYears(addDays(TODAY,untilOffset+1),-yearsAgo); };
+  [[6,-18,2],[19,-4,1],[33,-41,1],[47,-9,3],[58,-27,2],[71,-63,1]].forEach(a=>setFee(...a));
+  [[11,9,1],[24,3,2],[40,17,1],[66,26,1],[88,30,2]].forEach(a=>setFee(...a));
+  const lapsed = new Set([6,19,33,47,58,71]), keep = new Set([0,1,2,11,14,20,24,40,66,88]);
+  members[0].birth = `1978-${TODAY.slice(5,7)}-${z2(Math.min(28,Number(TODAY.slice(8,10))+5))}`;
+  members[0].memo = "ハイボールは濃いめ。カウンター奥の席が好み";
+  members[2].memo = "紹介の多い常連さま";
+  members.forEach((m,i)=>{
+    // 年会費：入会日に1年分、以後は毎年ほぼ期限前後に更新（期限切れの会員は最後の更新をしていない）
+    let n = 1; while(addDays(addYears(m.joined,n),-1) < TODAY) n++;
+    if(lapsed.has(i)) n--;
+    else if(r() < 0.05 && n > 1 && !keep.has(i)) { n--; lapsed.add(i); }
+    let from = m.joined;
+    for(let k=0;k<n;k++){
+      const until = addDays(addYears(m.joined,k+1),-1);
+      const date = k===0 ? m.joined : addDays(from,-between(0,12));
+      fees.push({id:++fid,mid:m.id,date:date>TODAY?TODAY:date,amount:settings.feeAmount,until,by:pick(["甲野 太郎","乙野 花子"])});
+      from = addDays(until,1);
+    }
+    m.feeUntil = addDays(addYears(m.joined,n),-1);
+  });
+  // 来店：日曜定休・金土は多め。会員は常連ほど来店が多い／一部は会員以外
+  const visits = [];
+  let vid = 0;
+  const start = addDays(TODAY,-430);
+  for(let d=start; d<TODAY; d=addDays(d,1)){
+    const dow = pd(d).getDay();
+    if(dow===0) continue;
+    const groups = between(4,9) + (dow===5||dow===6 ? between(3,6) : 0);
+    const pool = members.filter(m=>m.joined<=d);
+    const tot = pool.reduce((a,m)=>a+m.w,0);
+    for(let k=0;k<groups;k++){
+      let mid = null, men = 0, women = 0;
+      if(r() < 0.88 && pool.length){
+        let x = r()*tot, m = pool[0];
+        for(const p of pool){ x -= p.w; if(x<=0){ m=p; break; } }
+        mid = m.id; if(m.gender==="男性") men++; else women++;
+        const comp = r()<0.45 ? 0 : between(1,3);
+        for(let c=0;c<comp;c++){ if(r()<0.55) men++; else women++; }
+      } else {
+        const p = between(1,3);
+        for(let c=0;c<p;c++){ if(r()<0.6) men++; else women++; }
+      }
+      const ppl = men+women;
+      let amount = ppl*between(55,170)*100 + (r()<0.12 ? between(150,300)*100 : 0);
+      const h = between(19,25), mi = pick([0,10,15,20,30,40,45,50]);
+      visits.push({id:0,mid,date:d,time:`${z2(h%24)}:${z2(mi)}`,late:h>=24,men,women,amount,pay:pick(PAYS),by:pick(["甲野 太郎","乙野 花子","丙山 一郎"]),memo:""});
+    }
+  }
+  visits.sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:((a.late?1:0)-(b.late?1:0))||(a.time<b.time?-1:1));
+  visits.forEach(v=>{v.id=++vid;delete v.late;});
+  // 今日：会計済み2組・在店中2組
+  [[3,"19:10",2,0,24800,"カード"],[15,"19:45",1,1,18600,"現金"],[2,"20:05",1,0,null,""],[21,"20:30",2,1,null,""]].forEach(([mid,time,men,women,amount,pay])=>{
+    visits.push({id:++vid,mid,date:TODAY,time,men,women,amount,pay,by:"乙野 花子",memo:""});
+  });
+  // ボトルキープ
+  const bottles = [];
+  let bid = 0;
+  const bm = [1,1,3,5,8,9,10,13,14,16,18,22,23,25,27,29,30,31,35,37,39,42,44,45,50,52,55,57,61,63,68,70,74,77,80,83,90,95,101,110];
+  bm.forEach((mid,i)=>{
+    const opened = addDays(TODAY,-between(10,230));
+    const until = addMonths(opened,settings.bottleMonths);
+    const done = i%6===5;
+    bottles.push({id:++bid,mid,name:i<2?(i===0?"シングルモルト 12年":"芋焼酎"):pick(BOTTLES),opened,until,level:i===0?"半分":pick(["多い","半分","少ない"]),status:done?"終了":"キープ中",closed:done?addDays(opened,between(5,60)):""});
+  });
+  members.forEach(m=>delete m.w);
+  return {ver:1,seededFor:TODAY,settings,users,members,fees,visits,bottles,seq:{m:members.length,f:fid,v:vid,b:bid,u:users.length}};
+}
+
+let S;
+function load(){
+  try{
+    const j=JSON.parse(localStorage.getItem(KEY)||"null");
+    if(j&&j.ver===1){
+      // デモの日付は開いた日に合わせて前後へずらす（入力した記録も同じ日数だけずれる）
+      const d=diffDays(TODAY,j.seededFor);
+      if(d!==0){
+        const sh=s=>s?addDays(s,d):s;
+        j.members.forEach(m=>{m.joined=sh(m.joined);m.feeUntil=sh(m.feeUntil);});
+        j.fees.forEach(f=>{f.date=sh(f.date);f.until=sh(f.until);});
+        j.visits.forEach(v=>{v.date=sh(v.date);});
+        j.bottles.forEach(b=>{b.opened=sh(b.opened);b.until=sh(b.until);b.closed=sh(b.closed);});
+        j.seededFor=TODAY;
+      }
+      return j;
+    }
+  }catch(e){}
+  return seedData();
+}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+let ME = null;
+function loadMe(){try{const id=Number(sessionStorage.getItem(KEY+"_me"));return S.users.find(u=>u.id===id)||null;}catch(e){return null;}}
+function setMe(u){ME=u;try{u?sessionStorage.setItem(KEY+"_me",u.id):sessionStorage.removeItem(KEY+"_me");}catch(e){}}
+const ROLE_LABEL = {owner:"オーナー",staff:"スタッフ"};
+const isOwner = () => ME && ME.role==="owner";
+
+/* ===== 判定 ===== */
+function mById(id){return S.members.find(m=>m.id===Number(id));}
+function mByNo(no){return S.members.find(m=>m.no===no);}
+function normNo(raw){
+  let s=String(raw||"").trim().toUpperCase().replace(/[\s*]/g,"").replace(/[０-９Ａ-Ｚ]/g,c=>String.fromCharCode(c.charCodeAt(0)-0xFEE0));
+  if(/^\d{1,6}$/.test(s)) return NAME_NO(Number(s));
+  const m=s.match(/^M-?(\d{1,6})$/); if(m) return NAME_NO(Number(m[1]));
+  return s;
+}
+function feeState(m){
+  const d=diffDays(m.feeUntil,TODAY);
+  if(d<0) return {k:"over",cls:"b-red",text:`期限切れ（${-d}日超過）`,days:d};
+  if(d<=30) return {k:"soon",cls:"b-orange",text:`あと${d}日`,days:d};
+  return {k:"ok",cls:"b-green",text:"有効",days:d};
+}
+function nextUntil(m){
+  // 期限内の前払いは今の期限の翌日から1年、期限切れは受け取った日から1年
+  const base = m.feeUntil>=TODAY ? addDays(m.feeUntil,1) : TODAY;
+  return addDays(addYears(base,1),-1);
+}
+function bottleState(b){
+  if(b.status==="終了") return {k:"done",cls:"b-gray",text:"終了"};
+  const d=diffDays(b.until,TODAY);
+  if(d<0) return {k:"over",cls:"b-red",text:`保管期限切れ（${-d}日）`};
+  if(d<=30) return {k:"soon",cls:"b-orange",text:`あと${d}日`};
+  return {k:"ok",cls:"b-green",text:"キープ中"};
+}
+function memberStats(){
+  const st=new Map();
+  S.visits.forEach(v=>{
+    if(!v.mid) return;
+    let s=st.get(v.mid); if(!s){s={count:0,sum:0,last:""};st.set(v.mid,s);}
+    s.count++; if(v.amount!=null) s.sum+=v.amount; if(v.date>s.last) s.last=v.date;
+  });
+  return st;
+}
+function mLabel(mid){const m=mById(mid);return m?`${m.no} ${m.name}`:"会員以外（ビジター）";}
+
+/* ===== バーコード（Code39：USBリーダー・スマホのどちらでも読める方式） ===== */
+const C39 = {"0":"nnnwwnwnn","1":"wnnwnnnnw","2":"nnwwnnnnw","3":"wnwwnnnnn","4":"nnnwwnnnw","5":"wnnwwnnnn","6":"nnwwwnnnn","7":"nnnwnnwnw","8":"wnnwnnwnn","9":"nnwwnnwnn",
+"A":"wnnnnwnnw","B":"nnwnnwnnw","C":"wnwnnwnnn","D":"nnnnwwnnw","E":"wnnnwwnnn","F":"nnwnwwnnn","G":"nnnnnwwnw","H":"wnnnnwwnn","I":"nnwnnwwnn","J":"nnnnwwwnn",
+"K":"wnnnnnnww","L":"nnwnnnnww","M":"wnwnnnnwn","N":"nnnnwnnww","O":"wnnnwnnwn","P":"nnwnwnnwn","Q":"nnnnnnwww","R":"wnnnnnwwn","S":"nnwnnnwwn","T":"nnnnwnwwn",
+"U":"wwnnnnnnw","V":"nwwnnnnnw","W":"wwwnnnnnn","X":"nwnnwnnnw","Y":"wwnnwnnnn","Z":"nwwnwnnnn","-":"nwnnnnwnw",".":"wwnnnnwnn"," ":"nwwnnnwnn","*":"nwnnwnwnn"};
+function code39svg(text){
+  const n=2, w=6, h=70, q=20;
+  let x=q, rects="";
+  const s="*"+text+"*";
+  for(let i=0;i<s.length;i++){
+    const p=C39[s[i]]; if(!p) continue;
+    for(let j=0;j<9;j++){
+      const ww=p[j]==="w"?w:n;
+      if(j%2===0) rects+=`<rect x="${x}" y="0" width="${ww}" height="${h}"/>`;
+      x+=ww;
+    }
+    x+=n;
+  }
+  const W=x-n+q;
+  return `<svg class="bc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${h}" preserveAspectRatio="none" role="img" aria-label="会員番号 ${esc(text)} のバーコード"><rect width="${W}" height="${h}" fill="#fff"/><g fill="#000">${rects}</g></svg>`;
+}
+
+/* ===== 画面の切り替え ===== */
+let Q = new URLSearchParams();
+function go(h){if(location.hash===h)render();else location.hash=h;}
+function render(){
+  const h = location.hash || "#/home";
+  $("#todayLbl").textContent = "今日の日付：" + jdw(TODAY);
+  if(!ME){ $("#hdr").hidden=true; if(h!=="#/login"){location.hash="#/login";return;} viewLogin(); return; }
+  if(h==="#/login"){location.hash="#/home";return;}
+  $("#hdr").hidden=false;
+  $("#whoName").textContent=ME.name; const rl=$("#whoRole"); rl.textContent=ROLE_LABEL[ME.role]; rl.className="role "+ME.role;
+  const [path,query]=h.slice(1).split("?"); Q=new URLSearchParams(query||"");
+  const parts=path.split("/").filter(Boolean);
+  const items=[["home","来店受付"],["members","会員"],["bottles","ボトルキープ"]];
+  if(isOwner()) items.push(["report","売上レポート"],["settings","設定"]);
+  const sect = parts[0]==="member"?"members":parts[0]==="visit"?"home":parts[0]==="print"?"members":parts[0];
+  $("#nav").innerHTML=items.map(([k,l])=>`<a href="#/${k}" class="${sect===k?"on":""}">${l}</a>`).join("");
+  window.scrollTo(0,0);
+  switch(parts[0]){
+    case "home": return viewHome();
+    case "members": return viewMembers();
+    case "member":
+      if(parts[1]==="new") return viewMemberForm(null);
+      { const m=mById(parts[1]); if(!m) return notFound(); return parts[2]==="edit"?viewMemberForm(m):viewMember(m); }
+    case "visit":
+      if(parts[1]==="new") return viewVisitForm(null);
+      { const v=S.visits.find(x=>x.id===Number(parts[1])); if(!v) return notFound(); return viewVisitForm(v); }
+    case "bottles": return viewBottles();
+    case "report": return isOwner()?viewReport():deny();
+    case "settings": return isOwner()?viewSettings():deny();
+    case "print": return viewPrint();
+    default: location.hash="#/home";
+  }
+}
+function deny(){$("#app").innerHTML=`<div class="card"><h2>この画面を開く権限がありません</h2><p class="muted">ご利用の権限（${ROLE_LABEL[ME.role]}）では表示できない画面です。売上や設定はオーナーだけが見られます。</p><a class="btn" href="#/home">来店受付へ戻る</a></div>`;}
+function notFound(){$("#app").innerHTML=`<div class="card"><h2>見つかりませんでした</h2><p class="muted">削除されたか、番号が違う可能性があります。</p><a class="btn" href="#/home">来店受付へ戻る</a></div>`;}
+
+/* ===== ログイン ===== */
+function viewLogin(){
+  $("#app").innerHTML=`<div class="login-wrap"><div class="card">
+    <h1>ログイン</h1>
+    <div id="lerr"></div>
+    <div class="fld"><label for="lemail">メールアドレス</label><input type="email" id="lemail" autocomplete="username"></div>
+    <div class="fld" style="margin-top:12px"><label for="lpw">パスワード</label><input type="password" id="lpw" autocomplete="current-password"></div>
+    <button class="btn pri" id="loginBtn" style="width:100%;margin-top:16px">ログイン</button>
+  </div>
+  <div class="card"><h2>デモ用のアカウント</h2><p class="muted" style="margin:0 0 4px">パスワードはどれも「demo」です。押すとそのままログインします。</p>
+    ${S.users.map(u=>`<div class="acct"><div><b>${esc(u.name)}</b> <span class="role ${u.role}">${ROLE_LABEL[u.role]}</span><div class="muted">${esc(u.email)}</div></div><button class="btn sm" data-quick="${u.id}">この人で入る</button></div>`).join("")}
+  </div></div>`;
+  const doLogin=()=>{
+    const u=S.users.find(x=>x.email===$("#lemail").value.trim().toLowerCase());
+    if(!u||$("#lpw").value!=="demo"){$("#lerr").innerHTML=`<div class="err">メールアドレスかパスワードが違います</div>`;return;}
+    setMe(u); SCAN=null; location.hash="#/home";
+  };
+  $("#loginBtn").onclick=doLogin;
+  $("#lpw").onkeydown=e=>{if(e.key==="Enter")doLogin();};
+  $$("[data-quick]").forEach(b=>b.onclick=()=>{setMe(S.users.find(u=>u.id===Number(b.dataset.quick)));SCAN=null;location.hash="#/home";});
+}
+$("#logout").onclick=()=>{setMe(null);SCAN=null;MF=null;location.hash="#/login";};
+
+/* ===== 来店受付 ===== */
+let SCAN = null; // {mid, men, women, msg}
+function viewHome(){
+  const today=S.visits.filter(v=>v.date===TODAY).sort((a,b)=>a.time<b.time?-1:1);
+  const paid=today.filter(v=>v.amount!=null);
+  const sales=paid.reduce((a,v)=>a+v.amount,0), guests=today.reduce((a,v)=>a+v.men+v.women,0);
+  const inStore=today.filter(v=>v.amount==null);
+  const over=S.members.filter(m=>feeState(m).k==="over").length, soon=S.members.filter(m=>feeState(m).k==="soon").length;
+  const bOver=S.bottles.filter(b=>bottleState(b).k==="over").length;
+  const mm=TODAY.slice(5,7), bday=S.members.filter(m=>m.birth&&m.birth.slice(5,7)===mm).length;
+  $("#app").innerHTML=`
+  <h1>来店受付 <span class="muted" style="font-weight:500">${jdw(TODAY)}</span></h1>
+  <div class="card">
+    <h2>会員証を読み取る</h2>
+    <div class="scanbox">
+      <input type="text" id="scan" inputmode="text" autocomplete="off" placeholder="バーコードを読み取る／会員番号を入力（例 7）" aria-label="会員番号">
+      <button class="btn pri" id="scanBtn">呼び出す</button>
+      <button class="btn" id="camBtn">カメラで読む</button>
+    </div>
+    <p class="muted" style="margin:8px 0 0">USBのバーコードリーダーなら、この欄を選んだ状態で会員証にかざすだけで呼び出せます。<button class="linkbtn" id="visitorBtn">会員以外（ビジター）の来店を記録</button></p>
+    <div id="scanResult"></div>
+  </div>
+  <div class="grid g4" style="margin-bottom:16px">
+    <div class="card kpi"><div class="lb">本日の売上（会計済み）</div><div class="v" id="kSales">${yen(sales)}</div><div class="s">${paid.length}組</div></div>
+    <div class="card kpi"><div class="lb">本日の来店</div><div class="v" id="kGroups">${today.length}組</div><div class="s" id="kGuests">${guests}名</div></div>
+    <div class="card kpi"><div class="lb">在店中（会計前）</div><div class="v" id="kIn">${inStore.length}組</div><div class="s">会計で売上に入ります</div></div>
+    <div class="card kpi"><div class="lb">本日の客単価</div><div class="v" id="kAvg">${paid.length?yen(Math.round(sales/paid.reduce((a,v)=>a+v.men+v.women,0))):"—"}</div><div class="s">売上÷会計済みの人数</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>本日の来店</h2>
+      ${today.length?`<div class="tbl-wrap"><table><thead><tr><th>時刻</th><th>お客さま</th><th class="num hide-sm">人数</th><th class="num">会計</th><th></th></tr></thead><tbody id="todayList">
+      ${today.map(v=>`<tr data-v="${v.id}"><td>${esc(v.time)}</td><td style="white-space:normal">${esc(mLabel(v.mid))}</td><td class="num hide-sm">${v.men+v.women}名</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:yen(v.amount)}</td><td><a class="btn sm ${v.amount==null?"pri":""}" href="#/visit/${v.id}">${v.amount==null?"会計する":"直す"}</a></td></tr>`).join("")}
+      </tbody></table></div>`:`<p class="muted" id="todayList">まだ来店はありません。</p>`}
+    </div>
+    <div class="card"><h2>お知らせ</h2>
+      <div class="tbl-wrap"><table><tbody>
+        <tr class="clk" data-go="#/members?fee=over"><td>年会費の期限切れの会員</td><td class="num"><span class="badge ${over?"b-red":"b-gray"}" id="nOver">${over}人</span></td></tr>
+        <tr class="clk" data-go="#/members?fee=soon"><td>年会費が30日以内に切れる会員</td><td class="num"><span class="badge ${soon?"b-orange":"b-gray"}" id="nSoon">${soon}人</span></td></tr>
+        <tr class="clk" data-go="#/bottles?f=over"><td>保管期限を過ぎたボトル</td><td class="num"><span class="badge ${bOver?"b-red":"b-gray"}" id="nBottle">${bOver}本</span></td></tr>
+        <tr class="clk" data-go="#/members?bday=1"><td>今月が誕生日の会員</td><td class="num"><span class="badge b-blue" id="nBday">${bday}人</span></td></tr>
+      </tbody></table></div>
+    </div>
+  </div>`;
+  $$("[data-go]").forEach(t=>t.onclick=()=>go(t.dataset.go));
+  const inp=$("#scan");
+  const doScan=()=>{const v=inp.value; if(!v.trim())return; scanNo(v); inp.value="";};
+  $("#scanBtn").onclick=doScan;
+  inp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();doScan();}};
+  $("#camBtn").onclick=openCamera;
+  $("#visitorBtn").onclick=()=>go("#/visit/new");
+  renderScan();
+  if(!SCAN) inp.focus();
+}
+function scanNo(raw){
+  const no=normNo(raw), m=mByNo(no);
+  if(!m){SCAN={err:`会員番号「${String(raw).trim()}」の会員は見つかりませんでした。番号をお確かめください。`};}
+  else SCAN={mid:m.id,men:m.gender==="男性"?1:0,women:m.gender==="男性"?0:1};
+  renderScan();
+}
+function renderScan(){
+  const box=$("#scanResult"); if(!box) return;
+  if(!SCAN){box.innerHTML="";return;}
+  if(SCAN.err){box.innerHTML=`<div class="err" style="margin-top:14px" id="scanErr">${esc(SCAN.err)}</div>`;return;}
+  const m=mById(SCAN.mid); if(!m){SCAN=null;box.innerHTML="";return;}
+  const fs=feeState(m), st=memberStats().get(m.id)||{count:0,sum:0,last:""};
+  const inNow=S.visits.find(v=>v.mid===m.id&&v.date===TODAY&&v.amount==null);
+  const bts=S.bottles.filter(b=>b.mid===m.id&&b.status==="キープ中");
+  box.innerHTML=`<div class="mcard ${fs.k==="over"?"alert":fs.k==="soon"?"soon":""}" id="mcard">
+    <div class="row" style="justify-content:space-between;align-items:flex-start">
+      <div><div class="muted">${esc(m.no)}・${esc(m.gender)}・入会 ${jdate(m.joined)}</div><div class="mname" id="scanName">${esc(m.name)} <span class="muted" style="font-size:15px;font-weight:500">${esc(m.kana)}</span></div></div>
+      <span class="badge ${fs.cls}" id="scanFee">年会費 ${fs.text}</span>
+    </div>
+    ${fs.k==="over"?`<div class="alertbox" id="feeAlert">⚠ 年会費の期限が切れています<small>期限 ${jdate(m.feeUntil)}（${-fs.days}日超過）。今回のご来店で年会費（${yen(S.settings.feeAmount)}）をお受け取りください。</small></div>`:""}
+    ${fs.k==="soon"?`<div class="soonbox" id="feeSoon">まもなく年会費の期限です（${jdate(m.feeUntil)}まで・あと${fs.days}日）。次回の更新をご案内ください。</div>`:""}
+    ${m.memo?`<div class="info" style="margin:10px 0">📝 ${esc(m.memo)}</div>`:""}
+    <dl class="dl" style="margin:10px 0">
+      <dt>来店回数</dt><dd id="scanCount">${st.count}回（前回 ${st.last?jdate(st.last):"なし"}）</dd>
+      <dt>キープ中のボトル</dt><dd id="scanBottles">${bts.length?bts.map(b=>`${esc(b.name)}（${esc(b.level)}・〜${jdate(b.until)}）`).join("<br>"):"なし"}</dd>
+    </dl>
+    ${inNow?`<div class="info" id="already">本日 ${esc(inNow.time)} から在店中です。お帰りの際は「会計する」を押してください。</div>
+      <div class="row"><a class="btn pri" href="#/visit/${inNow.id}" id="toPay">会計する</a><a class="btn" href="#/member/${m.id}">会員の詳細</a><button class="btn" id="scanClose">閉じる</button></div>`:`
+    <div class="row" style="margin-bottom:12px">
+      <div class="fld"><label>男性</label><div class="stepper"><button data-st="men" data-d="-1" aria-label="男性を減らす">−</button><output id="stMen">${SCAN.men}</output><button data-st="men" data-d="1" aria-label="男性を増やす">＋</button></div></div>
+      <div class="fld"><label>女性</label><div class="stepper"><button data-st="women" data-d="-1" aria-label="女性を減らす">−</button><output id="stWomen">${SCAN.women}</output><button data-st="women" data-d="1" aria-label="女性を増やす">＋</button></div></div>
+    </div>
+    <div class="row">
+      ${fs.k==="over"?`<button class="btn warn" id="btnFeeIn">年会費（${yen(S.settings.feeAmount)}）を受け取って来店を記録</button><button class="btn" id="btnIn">来店だけ記録する</button>`:`<button class="btn pri" id="btnIn">来店を記録</button>`}
+      <a class="btn" href="#/member/${m.id}">会員の詳細</a><button class="btn" id="scanClose">閉じる</button>
+    </div>`}
+  </div>`;
+  $$("[data-st]").forEach(b=>b.onclick=()=>{const k=b.dataset.st;SCAN[k]=Math.max(0,Math.min(20,SCAN[k]+Number(b.dataset.d)));$("#stMen").textContent=SCAN.men;$("#stWomen").textContent=SCAN.women;});
+  $("#scanClose").onclick=()=>{SCAN=null;renderScan();$("#scan").focus();};
+  const checkIn=withFee=>{
+    if(SCAN.men+SCAN.women<1){toast("人数を1名以上にしてください");return;}
+    if(withFee) receiveFee(m);
+    S.visits.push({id:++S.seq.v,mid:m.id,date:TODAY,time:nowHM(),men:SCAN.men,women:SCAN.women,amount:null,pay:"",by:ME.name,memo:""});
+    save(); const n=SCAN.men+SCAN.women; SCAN=null;
+    toast(`${m.name}さま（${n}名）の来店を記録しました`+(withFee?"・年会費を受け取りました":"")); viewHome();
+  };
+  const bi=$("#btnIn"); if(bi) bi.onclick=()=>checkIn(false);
+  const bf=$("#btnFeeIn"); if(bf) bf.onclick=()=>checkIn(true);
+}
+function receiveFee(m){
+  const until=nextUntil(m);
+  S.fees.push({id:++S.seq.f,mid:m.id,date:TODAY,amount:S.settings.feeAmount,until,by:ME.name});
+  m.feeUntil=until;
+}
+let CAM=null;
+async function openCamera(){
+  if(!("BarcodeDetector" in window)||!navigator.mediaDevices){
+    toast("この端末のブラウザはカメラ読み取りに対応していません。USBリーダーか番号の入力をお使いください。");return;
+  }
+  const ov=document.createElement("div");ov.className="cam";ov.innerHTML=`<div class="in"><h2>会員証のバーコードを映してください</h2><video playsinline muted></video><div class="row" style="margin-top:12px"><button class="btn" id="camClose">やめる</button></div></div>`;
+  document.body.appendChild(ov);
+  const close=()=>{if(CAM){CAM.getTracks().forEach(t=>t.stop());CAM=null;}ov.remove();};
+  $("#camClose",ov).onclick=close;
+  try{
+    CAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    const vd=$("video",ov);vd.srcObject=CAM;await vd.play();
+    const det=new BarcodeDetector({formats:["code_39","qr_code"]});
+    const loop=async()=>{if(!CAM)return;try{const r=await det.detect(vd);if(r.length){close();scanNo(r[0].rawValue);return;}}catch(e){}setTimeout(loop,250);};
+    loop();
+  }catch(e){close();toast("カメラを使えませんでした（許可されていない可能性があります）");}
+}
+
+/* ===== 会計・来店の記録 ===== */
+function viewVisitForm(v){
+  const isNew=!v;
+  const m=v&&v.mid?mById(v.mid):null;
+  const st={men:v?v.men:1,women:v?v.women:0,pay:v&&v.pay?v.pay:"現金"};
+  $("#app").innerHTML=`<h1>${isNew?"会員以外（ビジター）の来店":v.amount==null?"会計する":"来店の記録を直す"}</h1>
+  <div class="card">
+    <div id="verr"></div>
+    <p style="margin-top:0"><b id="vWho">${esc(mLabel(v?v.mid:null))}</b>${m?`　<span class="badge ${feeState(m).cls}">年会費 ${feeState(m).text}</span>`:""}</p>
+    <div class="form">
+      <div class="fld"><label for="vDate">日付</label><input type="date" id="vDate" value="${v?v.date:TODAY}" max="${TODAY}"></div>
+      <div class="fld"><label for="vTime">来店時刻</label><input type="time" id="vTime" value="${v?esc(v.time):nowHM()}"></div>
+      <div class="fld"><label>男性</label><div class="stepper"><button data-st="men" data-d="-1" aria-label="男性を減らす">−</button><output id="stMen">${st.men}</output><button data-st="men" data-d="1" aria-label="男性を増やす">＋</button></div></div>
+      <div class="fld"><label>女性</label><div class="stepper"><button data-st="women" data-d="-1" aria-label="女性を減らす">−</button><output id="stWomen">${st.women}</output><button data-st="women" data-d="1" aria-label="女性を増やす">＋</button></div></div>
+      <div class="fld"><label for="vAmount">お会計（税込・円）${isNew?"":`<span class="req">必須</span>`}</label><input type="number" id="vAmount" min="0" step="1" inputmode="numeric" value="${v&&v.amount!=null?v.amount:""}" placeholder="${isNew?"空欄なら在店中として記録":"例 18000"}"><span class="muted" id="vAmountLbl"></span></div>
+      <div class="fld"><label>お支払い</label><div class="seg" id="vPay">${PAYS.map(p=>`<button type="button" data-p="${p}" class="${st.pay===p?"on":""}">${p}</button>`).join("")}</div></div>
+      <div class="fld full"><label for="vMemo">メモ</label><input type="text" id="vMemo" value="${esc(v?v.memo:"")}" placeholder="例 誕生日のお祝い・ボトルを開けた"></div>
+    </div>
+    <div class="row" style="margin-top:16px">
+      <button class="btn pri" id="vSave">${isNew?"記録する":v.amount==null?"会計を確定する":"保存する"}</button>
+      <a class="btn" href="#/home">戻る</a>
+      ${!isNew&&isOwner()?`<button class="btn danger" id="vDel" style="margin-left:auto">この来店の記録を削除</button>`:""}
+    </div>
+  </div>`;
+  const lbl=()=>{const a=$("#vAmount").value;$("#vAmountLbl").textContent=a!==""&&/^\d+$/.test(a)?yen(Number(a)):"";};lbl();
+  $("#vAmount").oninput=lbl;
+  $$("[data-st]").forEach(b=>b.onclick=()=>{const k=b.dataset.st;st[k]=Math.max(0,Math.min(20,st[k]+Number(b.dataset.d)));$("#stMen").textContent=st.men;$("#stWomen").textContent=st.women;});
+  $$("#vPay button").forEach(b=>b.onclick=()=>{st.pay=b.dataset.p;$$("#vPay button").forEach(x=>x.classList.toggle("on",x===b));});
+  $("#vSave").onclick=()=>{
+    const errs=[]; const date=$("#vDate").value, time=$("#vTime").value, a=$("#vAmount").value.trim();
+    if(!isDate(date)) errs.push("日付を入力してください"); else if(date>TODAY) errs.push("未来の日付は記録できません");
+    if(!/^\d{2}:\d{2}$/.test(time)) errs.push("来店時刻を入力してください");
+    if(st.men+st.women<1) errs.push("人数を1名以上にしてください");
+    if(a===""&&!isNew) errs.push("お会計の金額を入力してください");
+    if(a!==""&&!/^\d+$/.test(a)) errs.push("お会計は0以上の整数（円）で入力してください");
+    if(errs.length){$("#verr").innerHTML=`<div class="err">${errs.map(esc).join("<br>")}</div>`;return;}
+    const rec=v||{id:++S.seq.v,mid:null,by:ME.name};
+    Object.assign(rec,{date,time,men:st.men,women:st.women,amount:a===""?null:Number(a),pay:a===""?"":st.pay,memo:$("#vMemo").value.trim()});
+    if(isNew) S.visits.push(rec);
+    save(); toast(a===""?"在店中として記録しました":"会計を記録しました"); go("#/home");
+  };
+  const d=$("#vDel"); if(d) d.onclick=()=>{if(!confirm("この来店の記録を削除します。よろしいですか？"))return;S.visits=S.visits.filter(x=>x.id!==v.id);save();toast("削除しました");go("#/home");};
+}
+
+/* ===== 会員一覧 ===== */
+let MF = null;
+function viewMembers(){
+  if(!MF) MF={q:"",fee:"",gender:"",sort:"no",bday:false};
+  if(Q.get("fee")) MF.fee=Q.get("fee");
+  if(Q.get("bday")) MF.bday=true;
+  $("#app").innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px"><h1 style="margin:0">会員</h1>
+    <div class="row"><a class="btn pri" href="#/member/new">会員を登録</a>${isOwner()?`<button class="btn" id="mCsv">一覧をCSVで保存</button>`:""}</div></div>
+  <div class="card">
+    <div class="row">
+      <div class="fld" style="flex:2 1 220px"><label for="fq">さがす（番号・名前・ふりがな・電話）</label><input type="search" id="fq" value="${esc(MF.q)}" placeholder="例 甲野／こうの／M0007"></div>
+      <div class="fld" style="flex:1 1 150px"><label for="ffee">年会費</label><select id="ffee"><option value="">すべて</option><option value="over">期限切れ</option><option value="soon">30日以内に期限</option><option value="ok">有効</option></select></div>
+      <div class="fld" style="flex:1 1 120px"><label for="fgen">性別</label><select id="fgen"><option value="">すべて</option><option>男性</option><option>女性</option><option>その他</option></select></div>
+      <div class="fld" style="flex:1 1 150px"><label for="fsort">並び順</label><select id="fsort"><option value="no">会員番号</option><option value="last">最後の来店が新しい順</option><option value="sum">累計売上が多い順</option><option value="away">来ていない日数が長い順</option></select></div>
+    </div>
+    <label style="display:inline-flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="fbday" ${MF.bday?"checked":""}> 今月が誕生日の会員だけ</label>
+  </div>
+  <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><div id="mCount" class="muted"></div><button class="btn sm" id="printSel" disabled>選んだ会員の会員証シールを印刷</button></div>
+  <div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="selAll" aria-label="表示中をすべて選ぶ"></th><th>会員番号</th><th>氏名</th><th class="hide-sm">性別</th><th>年会費</th><th class="hide-sm">最後の来店</th><th class="num hide-sm">来店回数</th><th class="num hide-sm">累計売上</th></tr></thead><tbody id="mList"></tbody></table></div>`;
+  $("#ffee").value=MF.fee; $("#fgen").value=MF.gender; $("#fsort").value=MF.sort;
+  const stats=memberStats();
+  const sel=new Set();
+  const list=()=>{
+    const q=MF.q.trim().toLowerCase().replace(/\s/g,""), qn=normNo(MF.q), mm=TODAY.slice(5,7);
+    let arr=S.members.filter(m=>{
+      if(q){const hay=(m.no+m.name+m.kana+m.tel).toLowerCase().replace(/[\s-]/g,"");if(!hay.includes(q.replace(/-/g,""))&&m.no!==qn)return false;}
+      if(MF.fee&&feeState(m).k!==MF.fee)return false;
+      if(MF.gender&&m.gender!==MF.gender)return false;
+      if(MF.bday&&!(m.birth&&m.birth.slice(5,7)===mm))return false;
+      return true;
+    });
+    const s=id=>stats.get(id)||{count:0,sum:0,last:""};
+    if(MF.sort==="last") arr.sort((a,b)=>s(b.id).last.localeCompare(s(a.id).last));
+    else if(MF.sort==="sum") arr.sort((a,b)=>s(b.id).sum-s(a.id).sum);
+    else if(MF.sort==="away") arr.sort((a,b)=>(s(a.id).last||"0").localeCompare(s(b.id).last||"0"));
+    else arr.sort((a,b)=>a.no.localeCompare(b.no));
+    $("#mCount").textContent=`${arr.length}人を表示しています（全${S.members.length}人）`;
+    $("#mList").innerHTML=arr.length?arr.map(m=>{const fs=feeState(m),x=s(m.id);return `<tr class="clk" data-m="${m.id}"><td><input type="checkbox" data-sel="${m.id}" ${sel.has(m.id)?"checked":""} aria-label="${esc(m.no)}を選ぶ"></td><td>${esc(m.no)}</td><td class="wrap-sm">${esc(m.name)}</td><td class="hide-sm">${esc(m.gender)}</td><td><span class="badge ${fs.cls}">${fs.k==="ok"?"〜"+jdate(m.feeUntil):fs.text}</span></td><td class="hide-sm">${x.last?jdate(x.last):"—"}</td><td class="num hide-sm">${x.count}回</td><td class="num hide-sm">${yen(x.sum)}</td></tr>`;}).join(""):`<tr><td colspan="8" class="muted">条件に合う会員がいません</td></tr>`;
+    $$("#mList tr[data-m]").forEach(t=>t.onclick=e=>{if(e.target.matches("input"))return;go("#/member/"+t.dataset.m);});
+    $$("#mList [data-sel]").forEach(c=>c.onchange=()=>{const id=Number(c.dataset.sel);c.checked?sel.add(id):sel.delete(id);$("#printSel").disabled=!sel.size;$("#printSel").textContent=sel.size?`選んだ${sel.size}人の会員証シールを印刷`:"選んだ会員の会員証シールを印刷";});
+    $("#selAll").checked=false;
+    $("#selAll").onchange=()=>{$$("#mList [data-sel]").forEach(c=>{c.checked=$("#selAll").checked;c.onchange();});};
+    return arr;
+  };
+  let cur=list();
+  $("#fq").oninput=e=>{MF.q=e.target.value;cur=list();};
+  $("#ffee").onchange=e=>{MF.fee=e.target.value;cur=list();};
+  $("#fgen").onchange=e=>{MF.gender=e.target.value;cur=list();};
+  $("#fsort").onchange=e=>{MF.sort=e.target.value;cur=list();};
+  $("#fbday").onchange=e=>{MF.bday=e.target.checked;cur=list();};
+  $("#printSel").onclick=()=>go("#/print?ids="+[...sel].join(","));
+  const c=$("#mCsv"); if(c) c.onclick=()=>{const s=id=>stats.get(id)||{count:0,sum:0,last:""};csv("会員一覧_"+TODAY+".csv",[["会員番号","氏名","ふりがな","性別","生年月日","電話","入会日","年会費の期限","紹介者","来店回数","累計売上","最後の来店","メモ"],...cur.map(m=>[m.no,m.name,m.kana,m.gender,m.birth,m.tel,m.joined,m.feeUntil,m.referrer,s(m.id).count,s(m.id).sum,s(m.id).last,m.memo])]);};
+}
+
+/* ===== 会員の詳細 ===== */
+function viewMember(m){
+  const fs=feeState(m), mv=S.visits.filter(v=>v.mid===m.id).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.time<b.time?1:-1));
+  const paid=mv.filter(v=>v.amount!=null), sum=paid.reduce((a,v)=>a+v.amount,0), ppl=paid.reduce((a,v)=>a+v.men+v.women,0);
+  const fees=S.fees.filter(f=>f.mid===m.id).sort((a,b)=>a.date<b.date?1:-1);
+  const bts=S.bottles.filter(b=>b.mid===m.id).sort((a,b)=>(a.status==="終了")-(b.status==="終了")||(a.opened<b.opened?1:-1));
+  const ref=m.referrer?mByNo(m.referrer):null, introduced=S.members.filter(x=>x.referrer===m.no);
+  $("#app").innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
+    <h1 style="margin:0" id="mTitle">${esc(m.name)} <span class="muted" style="font-weight:500">${esc(m.no)}</span></h1>
+    <div class="row"><a class="btn" href="#/member/${m.id}/edit">会員の情報を直す</a><a class="btn" href="#/print?ids=${m.id}">会員証シールを印刷</a></div></div>
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="card kpi"><div class="lb">来店回数</div><div class="v" id="mVisits">${mv.length}回</div><div class="s">前回 ${mv[0]?jdate(mv[0].date):"なし"}</div></div>
+    <div class="card kpi"><div class="lb">累計の売上</div><div class="v" id="mSales">${yen(sum)}</div><div class="s">年会費は含みません</div></div>
+    <div class="card kpi"><div class="lb">1人あたりの平均</div><div class="v" id="mAvg">${ppl?yen(Math.round(sum/ppl)):"—"}</div><div class="s">お連れさまを含む</div></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>会員の情報</h2>
+      <dl class="dl">
+        <dt>ふりがな</dt><dd>${esc(m.kana)}</dd><dt>性別</dt><dd>${esc(m.gender)}</dd>
+        <dt>生年月日</dt><dd>${m.birth?jdate(m.birth):"—"}</dd><dt>電話</dt><dd>${esc(m.tel)||"—"}</dd>
+        <dt>メール</dt><dd>${esc(m.email)||"—"}</dd><dt>入会日</dt><dd>${jdate(m.joined)}</dd>
+        <dt>紹介者</dt><dd>${ref?`<a href="#/member/${ref.id}">${esc(ref.no)} ${esc(ref.name)}</a>`:esc(m.referrer)||"—"}</dd>
+        <dt>紹介した会員</dt><dd>${introduced.length?introduced.map(x=>`<a href="#/member/${x.id}">${esc(x.name)}</a>`).join("、"):"—"}</dd>
+        <dt>メモ</dt><dd id="mMemo">${esc(m.memo)||"—"}</dd>
+      </dl>
+      <div style="margin-top:14px;max-width:320px">${code39svg(m.no)}<div style="text-align:center;font-weight:700;letter-spacing:.15em">${esc(m.no)}</div></div>
+    </div>
+    <div class="card"><h2>年会費</h2>
+      <p><span class="badge ${fs.cls}" id="mFee">${fs.text}</span>　期限 <b id="mFeeUntil">${jdate(m.feeUntil)}</b></p>
+      <div class="row" style="margin-bottom:12px"><button class="btn ${fs.k==="ok"?"":"pri"}" id="feeBtn">年会費（${yen(S.settings.feeAmount)}）を受け取った</button></div>
+      <p class="muted" style="margin-top:0">受け取ると期限が <b id="feeNext">${jdate(nextUntil(m))}</b> まで延びます（期限内なら今の期限の翌日から1年、切れていれば受け取った日から1年）。</p>
+      <div class="tbl-wrap"><table><thead><tr><th>受け取った日</th><th class="num">金額</th><th>有効期限</th><th class="hide-sm">受付</th></tr></thead><tbody id="feeList">
+      ${fees.map(f=>`<tr><td>${jdate(f.date)}</td><td class="num">${yen(f.amount)}</td><td>${jdate(f.until)}まで</td><td class="hide-sm">${esc(f.by)}</td></tr>`).join("")||`<tr><td colspan="4" class="muted">記録がありません</td></tr>`}
+      </tbody></table></div>
+    </div>
+  </div>
+  <div class="card"><h2>ボトルキープ</h2>
+    <div class="tbl-wrap" style="margin-bottom:12px"><table><thead><tr><th>ボトル</th><th>開封日</th><th>保管期限</th><th>残り</th><th>状態</th><th></th></tr></thead><tbody id="mBottles">
+    ${bts.map(b=>{const s=bottleState(b);return `<tr><td>${esc(b.name)}</td><td>${jdate(b.opened)}</td><td>${jdate(b.until)}</td><td>${esc(b.level)}</td><td><span class="badge ${s.cls}">${s.text}</span></td><td>${b.status==="キープ中"?`<button class="btn sm" data-fin="${b.id}">飲み切った</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="6" class="muted">キープ中のボトルはありません</td></tr>`}
+    </tbody></table></div>
+    <div class="row"><div class="fld" style="flex:2 1 200px"><label for="nbName">ボトルを追加</label><input type="text" id="nbName" list="bList" placeholder="例 シングルモルト 12年"><datalist id="bList">${BOTTLES.map(b=>`<option value="${esc(b)}">`).join("")}</datalist></div>
+    <div class="fld" style="flex:1 1 150px"><label for="nbDate">開封日</label><input type="date" id="nbDate" value="${TODAY}" max="${TODAY}"></div>
+    <button class="btn" id="nbAdd">追加する</button></div>
+  </div>
+  <div class="card"><h2>来店の履歴</h2>
+    <div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="hide-sm">時刻</th><th class="num">人数</th><th class="num hide-sm">男/女</th><th class="num">お会計</th><th class="hide-sm">お支払い</th></tr></thead><tbody id="mHist">
+    ${mv.slice(0,30).map(v=>`<tr class="clk" data-go="#/visit/${v.id}"><td>${jdw(v.date)}</td><td class="hide-sm">${esc(v.time)}</td><td class="num">${v.men+v.women}名</td><td class="num hide-sm">${v.men}/${v.women}</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:yen(v.amount)}</td><td class="hide-sm">${esc(v.pay)}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">まだ来店がありません</td></tr>`}
+    </tbody></table></div>
+    ${mv.length>30?`<p class="muted">新しい30件を表示しています（全${mv.length}件）</p>`:""}
+  </div>`;
+  $$("[data-go]").forEach(t=>t.onclick=()=>go(t.dataset.go));
+  $("#feeBtn").onclick=()=>{
+    const until=nextUntil(m);
+    if(!confirm(`${m.name}さまの年会費 ${yen(S.settings.feeAmount)} を受け取ったとして記録し、期限を ${jdate(until)} までにします。よろしいですか？`))return;
+    receiveFee(m);save();toast("年会費を記録しました");viewMember(m);
+  };
+  $$("[data-fin]").forEach(b=>b.onclick=()=>{const bt=S.bottles.find(x=>x.id===Number(b.dataset.fin));bt.status="終了";bt.closed=TODAY;save();toast("ボトルを終了にしました");viewMember(m);});
+  $("#nbAdd").onclick=()=>{
+    const name=$("#nbName").value.trim(), op=$("#nbDate").value;
+    if(!name){toast("ボトルの名前を入力してください");return;}
+    if(!isDate(op)||op>TODAY){toast("開封日を正しく入力してください");return;}
+    S.bottles.push({id:++S.seq.b,mid:m.id,name,opened:op,until:addMonths(op,S.settings.bottleMonths),level:"多い",status:"キープ中",closed:""});
+    save();toast("ボトルを追加しました");viewMember(m);
+  };
+}
+
+/* ===== 会員の登録・修正 ===== */
+function nextNo(){let n=0;S.members.forEach(m=>{const x=m.no.match(/^M(\d+)$/);if(x)n=Math.max(n,Number(x[1]));});return NAME_NO(n+1);}
+function viewMemberForm(m){
+  const isNew=!m;
+  const d=m||{no:nextNo(),name:"",kana:"",gender:"",birth:"",tel:"",email:"",joined:TODAY,feeUntil:addDays(addYears(TODAY,1),-1),referrer:"",memo:""};
+  $("#app").innerHTML=`<h1>${isNew?"会員を登録":"会員の情報を直す"}</h1>
+  <div class="card"><div id="ferr"></div>
+    <div class="form">
+      <div class="fld"><label for="fNo">会員番号<span class="req">必須</span></label><input type="text" id="fNo" value="${esc(d.no)}"></div>
+      <div class="fld"><label for="fName">氏名<span class="req">必須</span></label><input type="text" id="fName" value="${esc(d.name)}" placeholder="例 甲野 健"></div>
+      <div class="fld"><label for="fKana">ふりがな</label><input type="text" id="fKana" value="${esc(d.kana)}" placeholder="例 こうの けん"></div>
+      <div class="fld"><label>性別<span class="req">必須</span></label><div class="seg" id="fGender">${["男性","女性","その他"].map(g=>`<button type="button" data-g="${g}" class="${d.gender===g?"on":""}">${g}</button>`).join("")}</div></div>
+      <div class="fld"><label for="fBirth">生年月日</label><input type="date" id="fBirth" value="${esc(d.birth)}" max="${TODAY}"></div>
+      <div class="fld"><label for="fTel">電話</label><input type="tel" id="fTel" value="${esc(d.tel)}"></div>
+      <div class="fld"><label for="fMail">メール</label><input type="email" id="fMail" value="${esc(d.email)}"></div>
+      <div class="fld"><label for="fRef">紹介者の会員番号</label><input type="text" id="fRef" value="${esc(d.referrer)}" placeholder="例 M0003"></div>
+      <div class="fld"><label for="fJoined">入会日<span class="req">必須</span></label><input type="date" id="fJoined" value="${esc(d.joined)}" max="${TODAY}"></div>
+      <div class="fld"><label for="fUntil">年会費の期限<span class="req">必須</span></label><input type="date" id="fUntil" value="${esc(d.feeUntil)}"><span class="muted">${isNew?"入会日から1年を自動で入れます":"受け取りの記録は詳細画面のボタンから"}</span></div>
+      <div class="fld full"><label for="fMemo">メモ（お好み・席・注意点）</label><textarea id="fMemo">${esc(d.memo)}</textarea></div>
+      ${isNew?`<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fFee" checked> 入会時に年会費（${yen(S.settings.feeAmount)}）を受け取った</label>`:""}
+    </div>
+    <div class="row" style="margin-top:16px"><button class="btn pri" id="fSave">${isNew?"登録する":"保存する"}</button><a class="btn" href="${isNew?"#/members":"#/member/"+m.id}">戻る</a></div>
+  </div>`;
+  let gender=d.gender, untilTouched=!isNew;
+  $$("#fGender button").forEach(b=>b.onclick=()=>{gender=b.dataset.g;$$("#fGender button").forEach(x=>x.classList.toggle("on",x===b));});
+  $("#fUntil").oninput=()=>{untilTouched=true;};
+  $("#fJoined").onchange=()=>{const j=$("#fJoined").value;if(!untilTouched&&isDate(j))$("#fUntil").value=addDays(addYears(j,1),-1);};
+  $("#fSave").onclick=()=>{
+    const errs=[]; const no=normNo($("#fNo").value), name=$("#fName").value.trim(), joined=$("#fJoined").value, until=$("#fUntil").value, birth=$("#fBirth").value, refRaw=$("#fRef").value.trim();
+    const ref=refRaw?normNo(refRaw):"";
+    if(!/^M\d{4,6}$/.test(no)) errs.push("会員番号は「M0123」のような形（または数字だけ）で入力してください");
+    else if(S.members.some(x=>x.no===no&&(!m||x.id!==m.id))) errs.push("同じ会員番号の会員がすでにいます");
+    if(!name) errs.push("氏名を入力してください");
+    if(!gender) errs.push("性別を選んでください");
+    if(!isDate(joined)) errs.push("入会日を入力してください"); else if(joined>TODAY) errs.push("入会日に未来の日付は入れられません");
+    if(!isDate(until)) errs.push("年会費の期限を入力してください"); else if(isDate(joined)&&until<joined) errs.push("年会費の期限は入会日より後にしてください");
+    if(birth&&!isDate(birth)) errs.push("生年月日を正しく入力してください");
+    if(ref&&!mByNo(ref)) errs.push("紹介者の会員番号が見つかりません");
+    if(ref&&ref===no) errs.push("紹介者に本人は指定できません");
+    if(errs.length){$("#ferr").innerHTML=`<div class="err">${errs.map(esc).join("<br>")}</div>`;window.scrollTo(0,0);return;}
+    const rec=m||{id:++S.seq.m};
+    Object.assign(rec,{no,name,kana:$("#fKana").value.trim(),gender,birth,tel:$("#fTel").value.trim(),email:$("#fMail").value.trim(),joined,feeUntil:until,referrer:ref,memo:$("#fMemo").value.trim()});
+    if(isNew){S.members.push(rec); if($("#fFee").checked) S.fees.push({id:++S.seq.f,mid:rec.id,date:joined,amount:S.settings.feeAmount,until,by:ME.name});}
+    save(); toast(isNew?"会員を登録しました":"保存しました"); go("#/member/"+rec.id);
+  };
+}
+
+/* ===== ボトルキープ ===== */
+function viewBottles(){
+  let f=Q.get("f")||"keep";
+  $("#app").innerHTML=`<h1>ボトルキープ</h1>
+  <div class="card"><div class="seg" id="bSeg">${[["keep","キープ中すべて"],["over","保管期限切れ"],["soon","30日以内に期限"],["all","終了も含む"]].map(([k,l])=>`<button data-f="${k}">${l}</button>`).join("")}</div>
+  <p class="muted" style="margin:10px 0 0">保管期限は開封から${S.settings.bottleMonths}か月（設定で変更できます）。ボトルの追加は会員の詳細画面から行います。</p></div>
+  <div id="bCount" class="muted" style="margin-bottom:8px"></div>
+  <div class="tbl-wrap"><table><thead><tr><th>会員</th><th>ボトル</th><th class="hide-sm">開封日</th><th>保管期限</th><th>残り</th><th></th></tr></thead><tbody id="bList"></tbody></table></div>`;
+  const draw=()=>{
+    $$("#bSeg button").forEach(b=>b.classList.toggle("on",b.dataset.f===f));
+    let arr=S.bottles.filter(b=>{const k=bottleState(b).k;return f==="all"?true:f==="keep"?k!=="done":k===f;}).sort((a,b)=>a.until<b.until?-1:1);
+    $("#bCount").textContent=`${arr.length}本`;
+    $("#bList").innerHTML=arr.map(b=>{const s=bottleState(b),m=mById(b.mid);return `<tr><td style="white-space:normal"><a href="#/member/${b.mid}">${esc(m?m.no+" "+m.name:"")}</a></td><td style="white-space:normal">${esc(b.name)}</td><td class="hide-sm">${jdate(b.opened)}</td><td><span class="badge ${s.cls}">${s.k==="ok"?jdate(b.until):s.text}</span></td><td>${b.status==="キープ中"?`<select data-lv="${b.id}" aria-label="残り">${["多い","半分","少ない"].map(l=>`<option ${b.level===l?"selected":""}>${l}</option>`).join("")}</select>`:"—"}</td><td>${b.status==="キープ中"?`<button class="btn sm" data-fin="${b.id}">飲み切った</button>`:""}</td></tr>`;}).join("")||`<tr><td colspan="6" class="muted">該当するボトルはありません</td></tr>`;
+    $$("[data-lv]").forEach(s=>s.onchange=()=>{S.bottles.find(x=>x.id===Number(s.dataset.lv)).level=s.value;save();toast("残りの量を更新しました");});
+    $$("#bList [data-fin]").forEach(b=>b.onclick=()=>{const bt=S.bottles.find(x=>x.id===Number(b.dataset.fin));bt.status="終了";bt.closed=TODAY;save();toast("ボトルを終了にしました");draw();});
+  };
+  $$("#bSeg button").forEach(b=>b.onclick=()=>{f=b.dataset.f;draw();});
+  draw();
+}
+
+/* ===== 売上レポート ===== */
+let RP = {mode:"month",from:"",to:""};
+function periodOf(){
+  let f,t,pf,pt,label;
+  if(RP.mode==="week"){f=weekStart(TODAY);t=TODAY;pf=addDays(f,-7);pt=addDays(t,-7);label="今週";}
+  else if(RP.mode==="lastweek"){f=addDays(weekStart(TODAY),-7);t=addDays(f,6);pf=addDays(f,-7);pt=addDays(t,-7);label="先週";}
+  else if(RP.mode==="lastmonth"){f=addMonths(monthStart(TODAY),-1);t=addDays(monthStart(TODAY),-1);pf=addMonths(f,-1);pt=addDays(f,-1);label="先月";}
+  else if(RP.mode==="custom"){f=RP.from;t=RP.to;const len=diffDays(t,f)+1;pt=addDays(f,-1);pf=addDays(pt,-(len-1));label="指定した期間";}
+  else {f=monthStart(TODAY);t=TODAY;pf=addMonths(f,-1);pt=addMonths(TODAY,-1);label="今月";}
+  return {f,t,pf,pt,label};
+}
+function stats(f,t){
+  const vs=S.visits.filter(v=>v.amount!=null&&v.date>=f&&v.date<=t);
+  const sales=vs.reduce((a,v)=>a+v.amount,0), men=vs.reduce((a,v)=>a+v.men,0), women=vs.reduce((a,v)=>a+v.women,0);
+  const guests=men+women;
+  const fee=S.fees.filter(x=>x.date>=f&&x.date<=t).reduce((a,x)=>a+x.amount,0);
+  const joined=S.members.filter(m=>m.joined>=f&&m.joined<=t).length;
+  return {vs,sales,groups:vs.length,guests,men,women,avg:guests?Math.round(sales/guests):0,avgG:vs.length?Math.round(sales/vs.length):0,fee,joined,memberGroups:vs.filter(v=>v.mid).length};
+}
+function pct(a,b){if(!b)return "";const p=Math.round((a-b)/b*1000)/10;return `<span class="${p>=0?"up":"down"}">${p>=0?"+":""}${p}%</span>`;}
+function ratioTxt(s){return s.guests?`男性 ${Math.round(s.men/s.guests*100)}%・女性 ${100-Math.round(s.men/s.guests*100)}%`:"—";}
+function viewReport(){
+  const P=periodOf(), cur=stats(P.f,P.t), prev=stats(P.pf,P.pt);
+  const weekly=RP.mode==="week"||RP.mode==="lastweek";
+  const trend=[];
+  if(weekly){for(let i=7;i>=0;i--){const f=addDays(weekStart(TODAY),-7*i);let t=addDays(f,6);if(t>TODAY)t=TODAY;trend.push({label:`${jdate(f).slice(5)}〜`,f,t,s:stats(f,t)});}}
+  else{for(let i=11;i>=0;i--){const f=addMonths(monthStart(TODAY),-i);let t=addDays(addMonths(f,1),-1);if(t>TODAY)t=TODAY;trend.push({label:`${f.slice(0,4)}年${Number(f.slice(5,7))}月`,f,t,s:stats(f,t)});}}
+  const days=[]; const span=diffDays(P.t,P.f);
+  if(span>=0&&span<=62){for(let d=P.f;d<=P.t;d=addDays(d,1)) days.push({d,sum:cur.vs.filter(v=>v.date===d).reduce((a,v)=>a+v.amount,0)});}
+  const maxD=Math.max(1,...days.map(x=>x.sum));
+  const wd=[1,2,3,4,5,6,0].map(w=>{const vs=cur.vs.filter(v=>pd(v.date).getDay()===w);const n=new Set(vs.map(v=>v.date)).size;return {w,sum:vs.reduce((a,v)=>a+v.amount,0),groups:vs.length,days:n};});
+  const byM=new Map(); cur.vs.forEach(v=>{if(!v.mid)return;const x=byM.get(v.mid)||{n:0,sum:0,ppl:0};x.n++;x.sum+=v.amount;x.ppl+=v.men+v.women;byM.set(v.mid,x);});
+  const rank=[...byM.entries()].sort((a,b)=>b[1].sum-a[1].sum).slice(0,10);
+  const st=memberStats();
+  const away=S.members.filter(m=>feeState(m).k!=="over").map(m=>({m,last:(st.get(m.id)||{}).last||""})).filter(x=>!x.last||diffDays(TODAY,x.last)>=60).sort((a,b)=>(a.last||"0").localeCompare(b.last||"0")).reverse();
+  const mm=TODAY.slice(5,7), bday=S.members.filter(m=>m.birth&&m.birth.slice(5,7)===mm).sort((a,b)=>a.birth.slice(8)<b.birth.slice(8)?-1:1);
+  const kpi=(id,lb,v,pv,fmt)=>`<div class="card kpi"><div class="lb">${lb}</div><div class="v" id="${id}">${fmt(v)}</div><div class="s">前の期間 ${fmt(pv)} ${pct(v,pv)}</div></div>`;
+  $("#app").innerHTML=`<h1>売上レポート</h1>
+  <div class="card">
+    <div class="seg" id="rSeg">${[["week","今週"],["lastweek","先週"],["month","今月"],["lastmonth","先月"],["custom","期間を指定"]].map(([k,l])=>`<button data-m="${k}" class="${RP.mode===k?"on":""}">${l}</button>`).join("")}</div>
+    <div class="row" id="rCustom" style="margin-top:12px" ${RP.mode==="custom"?"":"hidden"}>
+      <div class="fld"><label for="rFrom">はじめ</label><input type="date" id="rFrom" value="${esc(RP.from)}" max="${TODAY}"></div>
+      <div class="fld"><label for="rTo">おわり</label><input type="date" id="rTo" value="${esc(RP.to)}" max="${TODAY}"></div>
+      <button class="btn pri" id="rApply">表示する</button>
+    </div>
+    <p class="muted" style="margin:10px 0 0" id="periodLbl">${P.label}：${jdw(P.f)}〜${jdw(P.t)}　／　くらべる期間：${jdate(P.pf)}〜${jdate(P.pt)}</p>
+  </div>
+  <div class="grid g4" style="margin-bottom:16px">
+    ${kpi("rSales","売上（飲食）",cur.sales,prev.sales,yen)}
+    ${kpi("rGroups","来店組数",cur.groups,prev.groups,x=>x+"組")}
+    ${kpi("rGuests","来店客数",cur.guests,prev.guests,x=>x+"名")}
+    ${kpi("rAvg","客単価（1人あたり）",cur.avg,prev.avg,yen)}
+  </div>
+  <div class="grid g3" style="margin-bottom:16px">
+    <div class="card kpi"><div class="lb">男女比（来店客）</div><div class="v" style="font-size:20px" id="rRatio">${ratioTxt(cur)}</div><div class="ratio" style="margin-top:6px"><div class="m" style="width:${cur.guests?cur.men/cur.guests*100:0}%"></div><div class="f" style="width:${cur.guests?cur.women/cur.guests*100:0}%"></div></div><div class="s">前の期間 ${ratioTxt(prev)}</div></div>
+    <div class="card kpi"><div class="lb">1組あたりの平均</div><div class="v" id="rAvgG">${yen(cur.avgG)}</div><div class="s">会員のご来店 ${cur.memberGroups}組／会員以外 ${cur.groups-cur.memberGroups}組</div></div>
+    <div class="card kpi"><div class="lb">年会費の受け取り（別計上）</div><div class="v" id="rFee">${yen(cur.fee)}</div><div class="s">新しく入会 ${cur.joined}人</div></div>
+  </div>
+  ${days.length?`<div class="card"><h2>日ごとの売上</h2><div class="bars" id="rBars">${days.map(x=>`<div class="b ${x.sum?"":"zero"}" style="height:${Math.max(2,x.sum/maxD*100)}%" title="${jdw(x.d)} ${yen(x.sum)}"></div>`).join("")}</div><div class="barlbl">${days.map((x,i)=>`<span>${i%Math.ceil(days.length/10)===0?Number(x.d.slice(8)):""}</span>`).join("")}</div><p class="muted" style="margin:6px 0 0">日曜は定休日のため0円です（見本データ）。</p></div>`:""}
+  <div class="card"><h2>${weekly?"週ごと":"月ごと"}の推移</h2>
+    <div class="tbl-wrap"><table><thead><tr><th>${weekly?"週（月曜はじまり）":"月"}</th><th class="num">売上</th><th class="num">組数</th><th class="num hide-sm">客数</th><th class="num">客単価</th><th class="hide-sm">男女比</th></tr></thead><tbody id="rTrend">
+    ${trend.map(x=>`<tr><td>${x.label}</td><td class="num">${yen(x.s.sales)}</td><td class="num">${x.s.groups}組</td><td class="num hide-sm">${x.s.guests}名</td><td class="num">${yen(x.s.avg)}</td><td class="hide-sm">${ratioTxt(x.s)}</td></tr>`).join("")}
+    </tbody></table></div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>曜日ごと</h2>
+      <div class="tbl-wrap"><table><thead><tr><th>曜日</th><th class="num">売上</th><th class="num">組数</th><th class="num">1日平均</th></tr></thead><tbody id="rWd">
+      ${wd.map(x=>`<tr><td>${WD[x.w]}曜</td><td class="num">${yen(x.sum)}</td><td class="num">${x.groups}組</td><td class="num">${x.days?yen(Math.round(x.sum/x.days)):"—"}</td></tr>`).join("")}
+      </tbody></table></div>
+    </div>
+    <div class="card"><h2>会員ごとの売上（上位10人）</h2>
+      <div class="tbl-wrap"><table><thead><tr><th>会員</th><th class="num">来店</th><th class="num">売上</th><th class="num hide-sm">客単価</th></tr></thead><tbody id="rRank">
+      ${rank.map(([mid,x])=>{const m=mById(mid);return `<tr class="clk" data-go="#/member/${mid}"><td>${esc(m.no)} ${esc(m.name)}</td><td class="num">${x.n}回</td><td class="num">${yen(x.sum)}</td><td class="num hide-sm">${yen(Math.round(x.sum/x.ppl))}</td></tr>`;}).join("")||`<tr><td colspan="4" class="muted">この期間の会員のご来店はありません</td></tr>`}
+      </tbody></table></div>
+    </div>
+  </div>
+  <div class="grid g2">
+    <div class="card"><h2>しばらく来ていない会員（60日以上）</h2>
+      <p class="muted" style="margin-top:0">年会費が有効なのに60日以上ご来店のない会員です。ご案内の連絡先として使えます。</p>
+      <p><b id="rAway">${away.length}人</b></p>
+      <div class="tbl-wrap"><table><thead><tr><th>会員</th><th>最後の来店</th></tr></thead><tbody id="rAwayList">${away.slice(0,8).map(x=>`<tr class="clk" data-go="#/member/${x.m.id}"><td>${esc(x.m.no)} ${esc(x.m.name)}</td><td>${x.last?jdate(x.last)+`（${diffDays(TODAY,x.last)}日前）`:"来店なし"}</td></tr>`).join("")||`<tr><td colspan="2" class="muted">該当なし</td></tr>`}</tbody></table></div>
+    </div>
+    <div class="card"><h2>今月が誕生日の会員</h2>
+      <p class="muted" style="margin-top:0">お祝いのご案内やサービスに使えます。</p>
+      <div class="tbl-wrap"><table><thead><tr><th>会員</th><th>誕生日</th></tr></thead><tbody id="rBday">${bday.map(m=>`<tr class="clk" data-go="#/member/${m.id}"><td>${esc(m.no)} ${esc(m.name)}</td><td>${Number(m.birth.slice(5,7))}月${Number(m.birth.slice(8))}日</td></tr>`).join("")||`<tr><td colspan="2" class="muted">該当なし</td></tr>`}</tbody></table></div>
+    </div>
+  </div>
+  <div class="card"><h2>CSVで保存（エクセルで開けます）</h2>
+    <div class="row"><button class="btn" id="csvSum">この期間の集計</button><button class="btn" id="csvDetail">この期間の来店明細</button><button class="btn" id="csvAway">しばらく来ていない会員</button></div>
+  </div>`;
+  $$("#rSeg button").forEach(b=>b.onclick=()=>{
+    if(b.dataset.m==="custom"){ if(!RP.from){RP.from=monthStart(TODAY);RP.to=TODAY;} }
+    RP.mode=b.dataset.m; viewReport();
+  });
+  $("#rApply").onclick=()=>{const f=$("#rFrom").value,t=$("#rTo").value;if(!isDate(f)||!isDate(t)||f>t){toast("期間の「はじめ」と「おわり」を正しく入れてください");return;}RP.from=f;RP.to=t>TODAY?TODAY:t;viewReport();};
+  $$("[data-go]").forEach(t=>t.onclick=()=>go(t.dataset.go));
+  $("#csvSum").onclick=()=>csv(`売上集計_${P.f}_${P.t}.csv`,[["項目","この期間","前の期間"],["期間",`${P.f}〜${P.t}`,`${P.pf}〜${P.pt}`],["売上（飲食）",cur.sales,prev.sales],["来店組数",cur.groups,prev.groups],["来店客数",cur.guests,prev.guests],["客単価",cur.avg,prev.avg],["男性",cur.men,prev.men],["女性",cur.women,prev.women],["年会費",cur.fee,prev.fee],["新規入会",cur.joined,prev.joined],[],["会員番号","氏名","来店回数","売上"],...rank.map(([mid,x])=>[mById(mid).no,mById(mid).name,x.n,x.sum])]);
+  $("#csvDetail").onclick=()=>csv(`来店明細_${P.f}_${P.t}.csv`,[["日付","時刻","会員番号","氏名","男性","女性","お会計","お支払い","メモ"],...cur.vs.map(v=>{const m=v.mid?mById(v.mid):null;return [v.date,v.time,m?m.no:"",m?m.name:"会員以外",v.men,v.women,v.amount,v.pay,v.memo];})]);
+  $("#csvAway").onclick=()=>csv(`しばらく来ていない会員_${TODAY}.csv`,[["会員番号","氏名","電話","最後の来店","年会費の期限"],...away.map(x=>[x.m.no,x.m.name,x.m.tel,x.last,x.m.feeUntil])]);
+}
+
+/* ===== 設定 ===== */
+function viewSettings(msg){
+  $("#app").innerHTML=`<h1>設定</h1>${msg?`<div class="info">${esc(msg)}</div>`:""}
+  <div class="grid g2">
+    <div class="card"><h2>金額と期間</h2><div id="serr"></div>
+      <div class="form">
+        <div class="fld"><label for="sFee">年会費（円）</label><input type="number" id="sFee" min="0" value="${S.settings.feeAmount}"></div>
+        <div class="fld"><label for="sBottle">ボトルの保管期間（か月）</label><input type="number" id="sBottle" min="1" max="36" value="${S.settings.bottleMonths}"></div>
+      </div>
+      <p class="muted">年会費の金額は見本です。実際の金額に合わせて変えられます。</p>
+      <button class="btn pri" id="sSave">保存する</button>
+    </div>
+    <div class="card"><h2>スタッフと権限</h2>
+      <p class="muted" style="margin-top:0">オーナー＝すべての画面／スタッフ＝来店受付・会計・会員・ボトルだけ（売上レポート・CSV・設定は見られません）</p>
+      <div class="tbl-wrap" style="margin-bottom:12px"><table><thead><tr><th>名前</th><th class="hide-sm">メール</th><th>権限</th><th></th></tr></thead><tbody id="userList">
+      ${S.users.map(u=>`<tr><td>${esc(u.name)}</td><td class="hide-sm">${esc(u.email)}</td><td><select data-ur="${u.id}" ${u.id===ME.id?"disabled":""} aria-label="権限"><option value="owner" ${u.role==="owner"?"selected":""}>オーナー</option><option value="staff" ${u.role==="staff"?"selected":""}>スタッフ</option></select></td><td>${u.id===ME.id?`<span class="muted">本人</span>`:`<button class="btn sm danger" data-ud="${u.id}">削除</button>`}</td></tr>`).join("")}
+      </tbody></table></div>
+      <div id="uerr"></div>
+      <div class="row"><div class="fld" style="flex:1 1 140px"><label for="uName">名前</label><input type="text" id="uName"></div><div class="fld" style="flex:2 1 180px"><label for="uMail">メール</label><input type="email" id="uMail"></div><button class="btn" id="uAdd">スタッフを追加</button></div>
+    </div>
+  </div>
+  <div class="card"><h2>紙・エクセルの会員名簿を取り込む</h2>
+    <p class="muted" style="margin-top:0">いまの紙の名簿をエクセルに書き写し、「CSV（UTF-8）」で保存したファイルを選ぶと、まとめて会員を登録できます。会員番号が空の行は自動で番号を振ります。</p>
+    <div class="row"><button class="btn" id="tplCsv">取り込み用のひな形をダウンロード</button><label class="btn pri" for="impFile" style="cursor:pointer">CSVファイルを選ぶ</label><input type="file" id="impFile" accept=".csv,text/csv" hidden></div>
+    <div id="impResult" style="margin-top:12px"></div>
+  </div>`;
+  $("#sSave").onclick=()=>{
+    const f=$("#sFee").value, b=$("#sBottle").value; const errs=[];
+    if(!/^\d+$/.test(f)) errs.push("年会費は0以上の整数（円）で入力してください");
+    if(!/^\d+$/.test(b)||Number(b)<1||Number(b)>36) errs.push("ボトルの保管期間は1〜36か月で入力してください");
+    if(errs.length){$("#serr").innerHTML=`<div class="err">${errs.join("<br>")}</div>`;return;}
+    S.settings.feeAmount=Number(f);S.settings.bottleMonths=Number(b);save();toast("設定を保存しました");viewSettings();
+  };
+  $$("[data-ur]").forEach(s=>s.onchange=()=>{S.users.find(u=>u.id===Number(s.dataset.ur)).role=s.value;save();toast("権限を変更しました");});
+  $$("[data-ud]").forEach(b=>b.onclick=()=>{const u=S.users.find(x=>x.id===Number(b.dataset.ud));if(!confirm(`${u.name} さんを削除します。よろしいですか？`))return;S.users=S.users.filter(x=>x.id!==u.id);save();viewSettings("スタッフを削除しました");});
+  $("#uAdd").onclick=()=>{
+    const n=$("#uName").value.trim(), e=$("#uMail").value.trim().toLowerCase(); const errs=[];
+    if(!n) errs.push("名前を入力してください");
+    if(!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(e)) errs.push("メールアドレスを正しく入力してください");
+    else if(S.users.some(u=>u.email===e)) errs.push("同じメールアドレスの人がすでにいます");
+    if(errs.length){$("#uerr").innerHTML=`<div class="err">${errs.join("<br>")}</div>`;return;}
+    S.users.push({id:++S.seq.u,name:n,email:e,role:"staff"});save();viewSettings("スタッフを追加しました（パスワードはデモでは「demo」）");
+  };
+  $("#tplCsv").onclick=()=>csv("会員名簿_取り込み用ひな形.csv",[IMP_COLS,["","甲野 次郎","こうの じろう","男性","1980-04-01","090-0000-0000","2025-11-01","2026-10-31","カウンター席が好み"]]);
+  $("#impFile").onchange=e=>{const file=e.target.files[0];if(!file)return;const rd=new FileReader();rd.onload=()=>importPreview(String(rd.result));rd.readAsText(file,"utf-8");e.target.value="";};
+}
+const IMP_COLS=["会員番号","氏名","ふりがな","性別","生年月日","電話","入会日","年会費の期限","メモ"];
+function parseCsv(text){
+  text=text.replace(/^﻿/,"");
+  const rows=[];let row=[],f="",q=false;
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(q){if(c==='"'){if(text[i+1]==='"'){f+='"';i++;}else q=false;}else f+=c;}
+    else if(c==='"')q=true;
+    else if(c===","){row.push(f);f="";}
+    else if(c==="\n"||c==="\r"){if(c==="\r"&&text[i+1]==="\n")i++;row.push(f);rows.push(row);row=[];f="";}
+    else f+=c;
+  }
+  if(f!==""||row.length){row.push(f);rows.push(row);}
+  return rows.filter(r=>r.some(x=>x.trim()!==""));
+}
+function normDate(s){s=String(s||"").trim().replace(/\//g,"-");const m=s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);if(!m)return s?null:"";const d=`${m[1]}-${z2(m[2])}-${z2(m[3])}`;return isDate(d)?d:null;}
+let IMP=null;
+function importPreview(text){
+  const rows=parseCsv(text); const box=$("#impResult");
+  if(!rows.length){box.innerHTML=`<div class="err">ファイルが空です</div>`;return;}
+  const head=rows[0].map(h=>h.trim()); const ix=Object.fromEntries(IMP_COLS.map(c=>[c,head.indexOf(c)]));
+  if(ix["氏名"]<0){box.innerHTML=`<div class="err">1行目に「氏名」の列が見つかりません。ひな形の1行目をそのまま使ってください。</div>`;return;}
+  const ok=[], bad=[]; const used=new Set(S.members.map(m=>m.no));
+  let seqN=Number(nextNo().slice(1));
+  rows.slice(1).forEach((r,k)=>{
+    const g=c=>ix[c]>=0?String(r[ix[c]]??"").trim():"";
+    const line=k+2, errs=[];
+    const name=g("氏名"); if(!name) errs.push("氏名が空です");
+    let gender=g("性別"); gender=gender==="男"?"男性":gender==="女"?"女性":gender;
+    if(!["男性","女性","その他"].includes(gender)) errs.push("性別は 男性／女性／その他 で入れてください");
+    const birth=normDate(g("生年月日")); if(birth===null) errs.push("生年月日の形が違います");
+    let joined=normDate(g("入会日")); if(joined===null) errs.push("入会日の形が違います"); else if(joined>TODAY) errs.push("入会日が未来です");
+    if(joined==="") joined=TODAY;
+    let until=normDate(g("年会費の期限")); if(until===null) errs.push("年会費の期限の形が違います");
+    if(until===""&&joined) until=addDays(addYears(joined,1),-1);
+    let no=g("会員番号");
+    if(no){no=normNo(no);if(!/^M\d{4,6}$/.test(no))errs.push("会員番号の形が違います");else if(used.has(no))errs.push(`会員番号 ${no} はすでに使われています`);}
+    if(errs.length){bad.push({line,name,errs});return;}
+    if(!no){while(used.has(NAME_NO(seqN)))seqN++;no=NAME_NO(seqN++);}
+    used.add(no);
+    ok.push({no,name,kana:g("ふりがな"),gender,birth,tel:g("電話"),email:"",joined,feeUntil:until,referrer:"",memo:g("メモ")});
+  });
+  IMP=ok;
+  box.innerHTML=`<div class="info" id="impSummary">取り込める行：${ok.length}件／直す必要がある行：${bad.length}件</div>
+  ${bad.length?`<div class="err" id="impErrors">${bad.map(b=>`${b.line}行目${b.name?"（"+esc(b.name)+"）":""}：${b.errs.map(esc).join("・")}`).join("<br>")}</div>`:""}
+  ${ok.length?`<div class="tbl-wrap" style="margin-bottom:12px"><table><thead><tr><th>会員番号</th><th>氏名</th><th>性別</th><th>入会日</th><th>年会費の期限</th></tr></thead><tbody>${ok.slice(0,20).map(m=>`<tr><td>${esc(m.no)}</td><td>${esc(m.name)}</td><td>${esc(m.gender)}</td><td>${jdate(m.joined)}</td><td>${jdate(m.feeUntil)}</td></tr>`).join("")}</tbody></table></div>
+  <button class="btn pri" id="impGo">${ok.length}件を取り込む</button>`:""}`;
+  const go2=$("#impGo"); if(go2) go2.onclick=()=>{IMP.forEach(m=>S.members.push({id:++S.seq.m,...m}));save();const n=IMP.length;IMP=null;viewSettings(`${n}件の会員を取り込みました`);};
+}
+
+/* ===== 会員証シールの印刷 ===== */
+function viewPrint(){
+  const ids=(Q.get("ids")||"").split(",").map(Number).filter(Boolean);
+  const ms=ids.map(mById).filter(Boolean);
+  $("#app").innerHTML=`<div class="noprint"><h1>会員証シールの印刷</h1>
+    <div class="card"><p style="margin-top:0">${ms.length}人分（名刺サイズ 86×54mm）。市販のシール用紙に印刷し、会員証に貼ってお使いください。</p>
+    <div class="row"><button class="btn pri" id="doPrint">印刷する</button><a class="btn" href="#/members">会員一覧へ戻る</a></div></div></div>
+  <div class="sheet" id="sheet">${ms.map(m=>`<div class="sticker" data-no="${esc(m.no)}"><div class="t">MEMBERS CARD</div>${code39svg(m.no)}<div class="no">${esc(m.no)}</div></div>`).join("")||`<p class="muted">印刷する会員が選ばれていません</p>`}</div>`;
+  $("#doPrint").onclick=()=>window.print();
+}
+
+/* ===== CSV ===== */
+function csv(name,rows){
+  const body=rows.map(r=>r.map(x=>{const s=String(x??"");return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(",")).join("\r\n");
+  const blob=new Blob(["﻿"+body],{type:"text/csv"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
+  setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
+}
+
+$("#resetData").onclick=()=>{if(!confirm("入力した内容を消して、デモのデータを最初の状態に戻します。よろしいですか？"))return;try{localStorage.removeItem(KEY);}catch(e){}S=seedData();save();SCAN=null;MF=null;toast("最初の状態に戻しました");render();};
+
+S=load(); save();
+ME=loadMe();
+window.addEventListener("hashchange",render);
+render();
+</script>
+</body>
+</html>
