@@ -279,7 +279,7 @@ function load(){
       // まだ何も入力していなければ、開いた日の見本を作り直す（いつ開いても「今日」が見本の今日になる）
       if(raw!==0&&!j.dirty) return seedData();
       // 入力済みなら消さない。見本の曜日（日曜定休）が崩れないよう、ずらすのは7日単位だけ
-      const d=Math.round(raw/7)*7;
+      const d=Math.trunc(raw/7)*7; // 切り捨て＝ずらし過ぎて入力済みの記録が未来の日付にならない
       if(d!==0){
         const sh=s=>s?addDays(s,d):s;
         j.members.forEach(m=>{m.joined=sh(m.joined);m.feeUntil=sh(m.feeUntil);});
@@ -893,7 +893,7 @@ function viewReport(){
   });
   $("#rApply").onclick=()=>{const f=$("#rFrom").value,t=$("#rTo").value;if(!isDate(f)||!isDate(t)||f>t){toast("期間の「はじめ」と「おわり」を正しく入れてください");return;}RP.from=f;RP.to=t>TODAY?TODAY:t;viewReport();};
   $$("[data-go]").forEach(t=>t.onclick=()=>go(t.dataset.go));
-  $("#csvSum").onclick=()=>csv(`売上集計_${P.f}_${P.t}.csv`,[["項目","この期間","前の期間"],["期間",`${P.f}〜${P.t}`,`${P.pf}〜${P.pt}`],["売上（飲食）",cur.sales,prev.sales],["来店組数",cur.groups,prev.groups],["来店客数",cur.guests,prev.guests],["客単価",cur.avg,prev.avg],["男性",cur.men,prev.men],["女性",cur.women,prev.women],["年会費",cur.fee,prev.fee],["新規入会",cur.joined,prev.joined],[],["会員番号","氏名","来店回数","売上"],...rank.map(([mid,x])=>[mById(mid).no,mById(mid).name,x.n,x.sum])]);
+  $("#csvSum").onclick=()=>csv(`売上集計_${P.f}_${P.t}.csv`,[["項目","この期間","前の期間"],["期間",`${P.f}〜${P.t}`,`${P.pf}〜${P.pt}`],["売上（飲食）",cur.sales,prev.sales],["来店組数",cur.groups,prev.groups],["来店客数",cur.guests,prev.guests],["客単価",cur.avg,prev.avg],["男性",cur.men,prev.men],["女性",cur.women,prev.women],["その他",cur.others,prev.others],["年会費",cur.fee,prev.fee],["新規入会",cur.joined,prev.joined],[],["会員番号","氏名","来店回数","売上"],...rank.map(([mid,x])=>[mById(mid).no,mById(mid).name,x.n,x.sum])]);
   $("#csvDetail").onclick=()=>csv(`来店明細_${P.f}_${P.t}.csv`,[["日付","時刻","会員番号","氏名","男性","女性","その他","お会計","お支払い","メモ"],...cur.vs.map(v=>{const m=v.mid?mById(v.mid):null;return [v.date,v.time,m?m.no:"",m?m.name:"会員以外",v.men,v.women,v.others||0,v.amount,v.pay,v.memo];})]);
   $("#csvAway").onclick=()=>csv(`しばらく来ていない会員_${TODAY}.csv`,[["会員番号","氏名","電話","最後の来店","年会費の期限"],...away.map(x=>[x.m.no,x.m.name,x.m.tel,x.last,x.m.feeUntil])]);
 }

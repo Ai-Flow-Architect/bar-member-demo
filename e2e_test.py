@@ -419,6 +419,7 @@ with sync_playwright() as p:
         pg.click("#csvSum")
     t = Path(dl.value.path()).read_text(encoding="utf-8-sig")
     check("集計CSVに売上の行", f"売上（飲食）,{sales}," in t)
+    check("集計CSVに「その他」の行（客数と合う）", "\nその他," in t.replace("\r", ""))
 
     # 週
     pg.click("#rSeg >> text=今週")
@@ -561,6 +562,11 @@ with sync_playwright() as p:
     pg2.press("#scan", "Enter")
     pg2.wait_for_timeout(150)
     check("在店中の会員を翌日に読み取っても二重に来店を作らない", pg2.is_visible("#already") and pg2.query_selector("#btnIn") is None)
+    pg2.goto(BASE + "?today=2026-11-02#/home")
+    pg2.wait_for_selector("#scan")
+    S4 = state(pg2)
+    fut = [v for v in S4["visits"] if v["date"] > "2026-11-02"]
+    check(f"4日後に開いても入力済みの記録が未来の日付にならない（未来 {len(fut)}件）", len(fut) == 0)
     pg2.goto(BASE + "?today=2026-11-05#/home")
     pg2.wait_for_selector("#scan")
     S3 = state(pg2)
