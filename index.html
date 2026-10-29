@@ -148,8 +148,10 @@ footer{max-width:1180px;margin:0 auto;padding:0 16px 40px;font-size:13px;color:v
 <script>
 "use strict";
 /* ===== 基本 ===== */
-const KEY = "bar_member_demo_v1";
 const qs = new URLSearchParams(location.search);
+// 日付を指定して開く試験用の入口（?today=）は、ふだんのデータと別の場所に保存する＝ふだんのデータを書き換えない
+const KEY = qs.has("today") ? "bar_member_demo_v1_test" : "bar_member_demo_v1";
+window.__KEY = KEY;
 const TODAY = (qs.get("today") && /^\d{4}-\d{2}-\d{2}$/.test(qs.get("today"))) ? qs.get("today") : ymd(new Date());
 const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -273,22 +275,26 @@ function load(){
   try{
     const j=JSON.parse(localStorage.getItem(KEY)||"null");
     if(j&&j.ver===1){
-      // デモの日付は開いた日に合わせて前後へずらす（入力した記録も同じ日数だけずれる）
-      const d=diffDays(TODAY,j.seededFor);
+      const raw=diffDays(TODAY,j.seededFor);
+      // まだ何も入力していなければ、開いた日の見本を作り直す（いつ開いても「今日」が見本の今日になる）
+      if(raw!==0&&!j.dirty) return seedData();
+      // 入力済みなら消さない。見本の曜日（日曜定休）が崩れないよう、ずらすのは7日単位だけ
+      const d=Math.round(raw/7)*7;
       if(d!==0){
         const sh=s=>s?addDays(s,d):s;
         j.members.forEach(m=>{m.joined=sh(m.joined);m.feeUntil=sh(m.feeUntil);});
         j.fees.forEach(f=>{f.date=sh(f.date);f.until=sh(f.until);});
         j.visits.forEach(v=>{v.date=sh(v.date);});
         j.bottles.forEach(b=>{b.opened=sh(b.opened);b.until=sh(b.until);b.closed=sh(b.closed);});
-        j.seededFor=TODAY;
+        j.seededFor=addDays(j.seededFor,d);
       }
       return j;
     }
   }catch(e){}
   return seedData();
 }
-function save(){try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
+// 画面での操作のあとに呼ぶ＝「入力あり」の印を付ける（起動時の保存は sys=true で印を付けない）
+function save(sys){if(!sys)S.dirty=true;try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}}
 let ME = null;
 function loadMe(){try{const id=Number(sessionStorage.getItem(KEY+"_me"));return S.users.find(u=>u.id===id)||null;}catch(e){return null;}}
 function setMe(u){ME=u;try{u?sessionStorage.setItem(KEY+"_me",u.id):sessionStorage.removeItem(KEY+"_me");}catch(e){}}
@@ -361,6 +367,7 @@ function go(h){if(location.hash===h)render();else location.hash=h;}
 function render(){
   const h = location.hash || "#/home";
   $("#todayLbl").textContent = "今日の日付：" + jdw(TODAY);
+  $("#resetData").hidden = !isOwner(); // データを消すボタンはオーナーだけ
   if(!ME){ $("#hdr").hidden=true; if(h!=="#/login"){location.hash="#/login";return;} viewLogin(); return; }
   if(h==="#/login"){location.hash="#/home";return;}
   $("#hdr").hidden=false;
@@ -400,7 +407,7 @@ function viewLogin(){
     <div class="fld" style="margin-top:12px"><label for="lpw">パスワード</label><input type="password" id="lpw" autocomplete="current-password"></div>
     <button class="btn pri" id="loginBtn" style="width:100%;margin-top:16px">ログイン</button>
   </div>
-  <div class="card"><h2>デモ用のアカウント</h2><p class="muted" style="margin:0 0 4px">パスワードはどれも「demo」です。押すとそのままログインします。</p>
+  <div class="card"><h2>デモ用のアカウント</h2><p class="muted" style="margin:0 0 4px">パスワードはどれも「demo」です。押すとそのままログインします。※デモのため画面側だけで権限を分けています。本番はサーバ側でパスワードと権限を守り、ログイン記録も残します。</p>
     ${S.users.map(u=>`<div class="acct"><div><b>${esc(u.name)}</b> <span class="role ${u.role}">${ROLE_LABEL[u.role]}</span><div class="muted">${esc(u.email)}</div></div><button class="btn sm" data-quick="${u.id}">この人で入る</button></div>`).join("")}
   </div></div>`;
   const doLogin=()=>{
@@ -417,10 +424,13 @@ $("#logout").onclick=()=>{setMe(null);SCAN=null;MF=null;location.hash="#/login";
 /* ===== 来店受付 ===== */
 let SCAN = null; // {mid, men, women, msg}
 function viewHome(){
-  const today=S.visits.filter(v=>v.date===TODAY).sort((a,b)=>a.time<b.time?-1:1);
-  const paid=today.filter(v=>v.amount!=null);
-  const sales=paid.reduce((a,v)=>a+v.amount,0), guests=today.reduce((a,v)=>a+v.men+v.women,0);
+  // 在店中（会計前）は日付を問わず出す＝0時をまたいだお客さまも一覧から消えない
+  const today=S.visits.filter(v=>v.date===TODAY||v.amount==null).sort((a,b)=>a.date<b.date?-1:a.date>b.date?1:(a.time<b.time?-1:1));
+  const todayOnly=today.filter(v=>v.date===TODAY);
+  const paid=todayOnly.filter(v=>v.amount!=null);
+  const sales=paid.reduce((a,v)=>a+v.amount,0), guests=todayOnly.reduce((a,v)=>a+ppl(v),0);
   const inStore=today.filter(v=>v.amount==null);
+  const own=isOwner();
   const over=S.members.filter(m=>feeState(m).k==="over").length, soon=S.members.filter(m=>feeState(m).k==="soon").length;
   const bOver=S.bottles.filter(b=>bottleState(b).k==="over").length;
   const mm=TODAY.slice(5,7), bday=S.members.filter(m=>m.birth&&m.birth.slice(5,7)===mm).length;
@@ -433,19 +443,19 @@ function viewHome(){
       <button class="btn pri" id="scanBtn">呼び出す</button>
       <button class="btn" id="camBtn">カメラで読む</button>
     </div>
-    <p class="muted" style="margin:8px 0 0">USBのバーコードリーダーなら、この欄を選んだ状態で会員証にかざすだけで呼び出せます。<button class="linkbtn" id="visitorBtn">会員以外（ビジター）の来店を記録</button></p>
+    <p class="muted" style="margin:8px 0 0">USBのバーコードリーダーなら、この欄を選んだ状態で会員証にかざすだけで呼び出せます。出てきた人数を確かめて「来店を記録」を押すと来店実績に入ります。スマホのカメラ読み取りは Android の Chrome で使えます（iPhone は USB リーダーか番号入力）。<button class="linkbtn" id="visitorBtn">会員以外（ビジター）の来店を記録</button></p>
     <div id="scanResult"></div>
   </div>
-  <div class="grid g4" style="margin-bottom:16px">
-    <div class="card kpi"><div class="lb">本日の売上（会計済み）</div><div class="v" id="kSales">${yen(sales)}</div><div class="s">${paid.length}組</div></div>
-    <div class="card kpi"><div class="lb">本日の来店</div><div class="v" id="kGroups">${today.length}組</div><div class="s" id="kGuests">${guests}名</div></div>
+  <div class="grid ${own?"g4":"g2"}" style="margin-bottom:16px">
+    ${own?`<div class="card kpi"><div class="lb">本日の売上（会計済み）</div><div class="v" id="kSales">${yen(sales)}</div><div class="s">${paid.length}組</div></div>`:""}
+    <div class="card kpi"><div class="lb">本日の来店</div><div class="v" id="kGroups">${todayOnly.length}組</div><div class="s" id="kGuests">${guests}名</div></div>
     <div class="card kpi"><div class="lb">在店中（会計前）</div><div class="v" id="kIn">${inStore.length}組</div><div class="s">会計で売上に入ります</div></div>
-    <div class="card kpi"><div class="lb">本日の客単価</div><div class="v" id="kAvg">${paid.length?yen(Math.round(sales/paid.reduce((a,v)=>a+v.men+v.women,0))):"—"}</div><div class="s">売上÷会計済みの人数</div></div>
+    ${own?`<div class="card kpi"><div class="lb">本日の客単価</div><div class="v" id="kAvg">${paid.length?yen(Math.round(sales/paid.reduce((a,v)=>a+ppl(v),0))):"—"}</div><div class="s">売上÷会計済みの人数</div></div>`:""}
   </div>
   <div class="grid g2">
-    <div class="card"><h2>本日の来店</h2>
+    <div class="card"><h2>本日の来店と在店中</h2>
       ${today.length?`<div class="tbl-wrap"><table><thead><tr><th>時刻</th><th>お客さま</th><th class="num hide-sm">人数</th><th class="num">会計</th><th></th></tr></thead><tbody id="todayList">
-      ${today.map(v=>`<tr data-v="${v.id}"><td>${esc(v.time)}</td><td style="white-space:normal">${esc(mLabel(v.mid))}</td><td class="num hide-sm">${v.men+v.women}名</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:yen(v.amount)}</td><td><a class="btn sm ${v.amount==null?"pri":""}" href="#/visit/${v.id}">${v.amount==null?"会計する":"直す"}</a></td></tr>`).join("")}
+      ${today.map(v=>`<tr data-v="${v.id}"><td>${v.date!==TODAY?`<span class="muted">${jdate(v.date).slice(5)}</span> `:""}${esc(v.time)}</td><td style="white-space:normal">${esc(mLabel(v.mid))}</td><td class="num hide-sm">${ppl(v)}名</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:yen(v.amount)}</td><td>${v.amount==null?`<a class="btn sm pri" href="#/visit/${v.id}">会計する</a>`:own?`<a class="btn sm" href="#/visit/${v.id}">直す</a>`:""}</td></tr>`).join("")}
       </tbody></table></div>`:`<p class="muted" id="todayList">まだ来店はありません。</p>`}
     </div>
     <div class="card"><h2>お知らせ</h2>
@@ -470,7 +480,7 @@ function viewHome(){
 function scanNo(raw){
   const no=normNo(raw), m=mByNo(no);
   if(!m){SCAN={err:`会員番号「${String(raw).trim()}」の会員は見つかりませんでした。番号をお確かめください。`};}
-  else SCAN={mid:m.id,men:m.gender==="男性"?1:0,women:m.gender==="男性"?0:1};
+  else SCAN={mid:m.id,men:m.gender==="男性"?1:0,women:m.gender==="女性"?1:0,others:m.gender==="その他"?1:0};
   renderScan();
 }
 function renderScan(){
@@ -479,7 +489,7 @@ function renderScan(){
   if(SCAN.err){box.innerHTML=`<div class="err" style="margin-top:14px" id="scanErr">${esc(SCAN.err)}</div>`;return;}
   const m=mById(SCAN.mid); if(!m){SCAN=null;box.innerHTML="";return;}
   const fs=feeState(m), st=memberStats().get(m.id)||{count:0,sum:0,last:""};
-  const inNow=S.visits.find(v=>v.mid===m.id&&v.date===TODAY&&v.amount==null);
+  const inNow=S.visits.find(v=>v.mid===m.id&&v.amount==null);
   const bts=S.bottles.filter(b=>b.mid===m.id&&b.status==="キープ中");
   box.innerHTML=`<div class="mcard ${fs.k==="over"?"alert":fs.k==="soon"?"soon":""}" id="mcard">
     <div class="row" style="justify-content:space-between;align-items:flex-start">
@@ -493,45 +503,56 @@ function renderScan(){
       <dt>来店回数</dt><dd id="scanCount">${st.count}回（前回 ${st.last?jdate(st.last):"なし"}）</dd>
       <dt>キープ中のボトル</dt><dd id="scanBottles">${bts.length?bts.map(b=>`${esc(b.name)}（${esc(b.level)}・〜${jdate(b.until)}）`).join("<br>"):"なし"}</dd>
     </dl>
-    ${inNow?`<div class="info" id="already">本日 ${esc(inNow.time)} から在店中です。お帰りの際は「会計する」を押してください。</div>
+    ${inNow?`<div class="info" id="already">${inNow.date===TODAY?"本日":jdate(inNow.date)} ${esc(inNow.time)} から在店中です。お帰りの際は「会計する」を押してください。</div>
       <div class="row"><a class="btn pri" href="#/visit/${inNow.id}" id="toPay">会計する</a><a class="btn" href="#/member/${m.id}">会員の詳細</a><button class="btn" id="scanClose">閉じる</button></div>`:`
-    <div class="row" style="margin-bottom:12px">
-      <div class="fld"><label>男性</label><div class="stepper"><button data-st="men" data-d="-1" aria-label="男性を減らす">−</button><output id="stMen">${SCAN.men}</output><button data-st="men" data-d="1" aria-label="男性を増やす">＋</button></div></div>
-      <div class="fld"><label>女性</label><div class="stepper"><button data-st="women" data-d="-1" aria-label="女性を減らす">−</button><output id="stWomen">${SCAN.women}</output><button data-st="women" data-d="1" aria-label="女性を増やす">＋</button></div></div>
-    </div>
+    <div class="row" style="margin-bottom:12px">${stepHtml(SCAN)}</div>
     <div class="row">
       ${fs.k==="over"?`<button class="btn warn" id="btnFeeIn">年会費（${yen(S.settings.feeAmount)}）を受け取って来店を記録</button><button class="btn" id="btnIn">来店だけ記録する</button>`:`<button class="btn pri" id="btnIn">来店を記録</button>`}
       <a class="btn" href="#/member/${m.id}">会員の詳細</a><button class="btn" id="scanClose">閉じる</button>
     </div>`}
   </div>`;
-  $$("[data-st]").forEach(b=>b.onclick=()=>{const k=b.dataset.st;SCAN[k]=Math.max(0,Math.min(20,SCAN[k]+Number(b.dataset.d)));$("#stMen").textContent=SCAN.men;$("#stWomen").textContent=SCAN.women;});
+  bindSteps(SCAN);
   $("#scanClose").onclick=()=>{SCAN=null;renderScan();$("#scan").focus();};
   const checkIn=withFee=>{
-    if(SCAN.men+SCAN.women<1){toast("人数を1名以上にしてください");return;}
-    if(withFee) receiveFee(m);
-    S.visits.push({id:++S.seq.v,mid:m.id,date:TODAY,time:nowHM(),men:SCAN.men,women:SCAN.women,amount:null,pay:"",by:ME.name,memo:""});
-    save(); const n=SCAN.men+SCAN.women; SCAN=null;
+    if(ppl(SCAN)<1){toast("人数を1名以上にしてください");return;}
+    if(withFee&&!receiveFee(m)) return;
+    S.visits.push({id:++S.seq.v,mid:m.id,date:TODAY,time:nowHM(),men:SCAN.men,women:SCAN.women,others:SCAN.others,amount:null,pay:"",by:ME.name,memo:""});
+    save(); const n=ppl(SCAN); SCAN=null;
     toast(`${m.name}さま（${n}名）の来店を記録しました`+(withFee?"・年会費を受け取りました":"")); viewHome();
   };
   const bi=$("#btnIn"); if(bi) bi.onclick=()=>checkIn(false);
   const bf=$("#btnFeeIn"); if(bf) bf.onclick=()=>checkIn(true);
 }
+// 年会費の受け取り。同じ日に2回目は記録しない（ボタンの二度押し・再読み込みで期限が2年延びるのを防ぐ）
 function receiveFee(m){
+  if(S.fees.some(f=>f.mid===m.id&&f.date===TODAY)){toast("この会員の年会費は本日すでに受け取りの記録があります");return false;}
   const until=nextUntil(m);
   S.fees.push({id:++S.seq.f,mid:m.id,date:TODAY,amount:S.settings.feeAmount,until,by:ME.name});
   m.feeUntil=until;
+  return true;
+}
+function ppl(v){return (v.men||0)+(v.women||0)+(v.others||0);}
+function stepHtml(st){
+  return [["men","男性"],["women","女性"],["others","その他"]].map(([k,l])=>`<div class="fld"><label>${l}</label><div class="stepper"><button type="button" data-st="${k}" data-d="-1" aria-label="${l}を減らす">−</button><output id="st_${k}">${st[k]||0}</output><button type="button" data-st="${k}" data-d="1" aria-label="${l}を増やす">＋</button></div></div>`).join("");
+}
+function bindSteps(st){
+  $$("[data-st]").forEach(b=>b.onclick=()=>{const k=b.dataset.st;st[k]=Math.max(0,Math.min(20,(st[k]||0)+Number(b.dataset.d)));$("#st_"+k).textContent=st[k];});
 }
 let CAM=null;
 async function openCamera(){
   if(!("BarcodeDetector" in window)||!navigator.mediaDevices){
-    toast("この端末のブラウザはカメラ読み取りに対応していません。USBリーダーか番号の入力をお使いください。");return;
+    toast("この端末のブラウザはカメラ読み取りに対応していません（iPhone など）。USBリーダーか番号の入力をお使いください。");return;
   }
   const ov=document.createElement("div");ov.className="cam";ov.innerHTML=`<div class="in"><h2>会員証のバーコードを映してください</h2><video playsinline muted></video><div class="row" style="margin-top:12px"><button class="btn" id="camClose">やめる</button></div></div>`;
   document.body.appendChild(ov);
-  const close=()=>{if(CAM){CAM.getTracks().forEach(t=>t.stop());CAM=null;}ov.remove();};
+  let cancelled=false;
+  const close=()=>{cancelled=true;if(CAM){CAM.getTracks().forEach(t=>t.stop());CAM=null;}ov.remove();};
   $("#camClose",ov).onclick=close;
   try{
-    CAM=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}});
+    // 許可を待っている間に「やめる」が押されていたら、届いたカメラをすぐ止める
+    if(cancelled){stream.getTracks().forEach(t=>t.stop());return;}
+    CAM=stream;
     const vd=$("video",ov);vd.srcObject=CAM;await vd.play();
     const det=new BarcodeDetector({formats:["code_39","qr_code"]});
     const loop=async()=>{if(!CAM)return;try{const r=await det.detect(vd);if(r.length){close();scanNo(r[0].rawValue);return;}}catch(e){}setTimeout(loop,250);};
@@ -542,17 +563,19 @@ async function openCamera(){
 /* ===== 会計・来店の記録 ===== */
 function viewVisitForm(v){
   const isNew=!v;
+  // 会計済みの記録を直せるのはオーナーだけ（スタッフは在店中の会計と新しい記録だけ）
+  if(v&&v.amount!=null&&!isOwner()){$("#app").innerHTML=`<div class="card"><h2>会計済みの記録は直せません</h2><p class="muted">会計済みの記録の修正はオーナーだけができます。間違いに気づいたらオーナーに伝えてください。</p><a class="btn" href="#/home">来店受付へ戻る</a></div>`;return;}
   const m=v&&v.mid?mById(v.mid):null;
-  const st={men:v?v.men:1,women:v?v.women:0,pay:v&&v.pay?v.pay:"現金"};
+  const st={men:v?v.men:1,women:v?v.women:0,others:v?(v.others||0):0,pay:v&&v.pay?v.pay:"現金"};
   $("#app").innerHTML=`<h1>${isNew?"会員以外（ビジター）の来店":v.amount==null?"会計する":"来店の記録を直す"}</h1>
   <div class="card">
     <div id="verr"></div>
+    ${v&&v.edits&&v.edits.length?`<div class="info" id="vEdits">修正の記録：${v.edits.map(e=>`${esc(e.at)} ${esc(e.by)}（修正前 ${yen(e.amount)}）`).join("／")}</div>`:""}
     <p style="margin-top:0"><b id="vWho">${esc(mLabel(v?v.mid:null))}</b>${m?`　<span class="badge ${feeState(m).cls}">年会費 ${feeState(m).text}</span>`:""}</p>
     <div class="form">
       <div class="fld"><label for="vDate">日付</label><input type="date" id="vDate" value="${v?v.date:TODAY}" max="${TODAY}"></div>
       <div class="fld"><label for="vTime">来店時刻</label><input type="time" id="vTime" value="${v?esc(v.time):nowHM()}"></div>
-      <div class="fld"><label>男性</label><div class="stepper"><button data-st="men" data-d="-1" aria-label="男性を減らす">−</button><output id="stMen">${st.men}</output><button data-st="men" data-d="1" aria-label="男性を増やす">＋</button></div></div>
-      <div class="fld"><label>女性</label><div class="stepper"><button data-st="women" data-d="-1" aria-label="女性を減らす">−</button><output id="stWomen">${st.women}</output><button data-st="women" data-d="1" aria-label="女性を増やす">＋</button></div></div>
+      <div class="fld full"><div class="row">${stepHtml(st)}</div></div>
       <div class="fld"><label for="vAmount">お会計（税込・円）${isNew?"":`<span class="req">必須</span>`}</label><input type="number" id="vAmount" min="0" step="1" inputmode="numeric" value="${v&&v.amount!=null?v.amount:""}" placeholder="${isNew?"空欄なら在店中として記録":"例 18000"}"><span class="muted" id="vAmountLbl"></span></div>
       <div class="fld"><label>お支払い</label><div class="seg" id="vPay">${PAYS.map(p=>`<button type="button" data-p="${p}" class="${st.pay===p?"on":""}">${p}</button>`).join("")}</div></div>
       <div class="fld full"><label for="vMemo">メモ</label><input type="text" id="vMemo" value="${esc(v?v.memo:"")}" placeholder="例 誕生日のお祝い・ボトルを開けた"></div>
@@ -565,18 +588,21 @@ function viewVisitForm(v){
   </div>`;
   const lbl=()=>{const a=$("#vAmount").value;$("#vAmountLbl").textContent=a!==""&&/^\d+$/.test(a)?yen(Number(a)):"";};lbl();
   $("#vAmount").oninput=lbl;
-  $$("[data-st]").forEach(b=>b.onclick=()=>{const k=b.dataset.st;st[k]=Math.max(0,Math.min(20,st[k]+Number(b.dataset.d)));$("#stMen").textContent=st.men;$("#stWomen").textContent=st.women;});
+  bindSteps(st);
   $$("#vPay button").forEach(b=>b.onclick=()=>{st.pay=b.dataset.p;$$("#vPay button").forEach(x=>x.classList.toggle("on",x===b));});
   $("#vSave").onclick=()=>{
     const errs=[]; const date=$("#vDate").value, time=$("#vTime").value, a=$("#vAmount").value.trim();
     if(!isDate(date)) errs.push("日付を入力してください"); else if(date>TODAY) errs.push("未来の日付は記録できません");
     if(!/^\d{2}:\d{2}$/.test(time)) errs.push("来店時刻を入力してください");
-    if(st.men+st.women<1) errs.push("人数を1名以上にしてください");
+    if(ppl(st)<1) errs.push("人数を1名以上にしてください");
     if(a===""&&!isNew) errs.push("お会計の金額を入力してください");
     if(a!==""&&!/^\d+$/.test(a)) errs.push("お会計は0以上の整数（円）で入力してください");
+    else if(a!==""&&Number(a)>10000000) errs.push("お会計が1,000万円を超えています。桁をお確かめください");
     if(errs.length){$("#verr").innerHTML=`<div class="err">${errs.map(esc).join("<br>")}</div>`;return;}
     const rec=v||{id:++S.seq.v,mid:null,by:ME.name};
-    Object.assign(rec,{date,time,men:st.men,women:st.women,amount:a===""?null:Number(a),pay:a===""?"":st.pay,memo:$("#vMemo").value.trim()});
+    // 会計済みの記録を直した時は、直した人と時刻を残す（誰がいつ金額を変えたか後で追える）
+    if(!isNew&&v.amount!=null) rec.edits=[...(rec.edits||[]),{at:TODAY+" "+nowHM(),by:ME.name,amount:v.amount}];
+    Object.assign(rec,{date,time,men:st.men,women:st.women,others:st.others,amount:a===""?null:Number(a),pay:a===""?"":st.pay,memo:$("#vMemo").value.trim()});
     if(isNew) S.visits.push(rec);
     save(); toast(a===""?"在店中として記録しました":"会計を記録しました"); go("#/home");
   };
@@ -596,12 +622,13 @@ function viewMembers(){
       <div class="fld" style="flex:2 1 220px"><label for="fq">さがす（番号・名前・ふりがな・電話）</label><input type="search" id="fq" value="${esc(MF.q)}" placeholder="例 甲野／こうの／M0007"></div>
       <div class="fld" style="flex:1 1 150px"><label for="ffee">年会費</label><select id="ffee"><option value="">すべて</option><option value="over">期限切れ</option><option value="soon">30日以内に期限</option><option value="ok">有効</option></select></div>
       <div class="fld" style="flex:1 1 120px"><label for="fgen">性別</label><select id="fgen"><option value="">すべて</option><option>男性</option><option>女性</option><option>その他</option></select></div>
-      <div class="fld" style="flex:1 1 150px"><label for="fsort">並び順</label><select id="fsort"><option value="no">会員番号</option><option value="last">最後の来店が新しい順</option><option value="sum">累計売上が多い順</option><option value="away">来ていない日数が長い順</option></select></div>
+      <div class="fld" style="flex:1 1 150px"><label for="fsort">並び順</label><select id="fsort"><option value="no">会員番号</option><option value="last">最後の来店が新しい順</option>${isOwner()?`<option value="sum">累計売上が多い順</option>`:""}<option value="away">来ていない日数が長い順</option></select></div>
     </div>
     <label style="display:inline-flex;gap:8px;align-items:center;margin-top:10px"><input type="checkbox" id="fbday" ${MF.bday?"checked":""}> 今月が誕生日の会員だけ</label>
   </div>
   <div class="row" style="justify-content:space-between;align-items:center;margin-bottom:8px"><div id="mCount" class="muted"></div><button class="btn sm" id="printSel" disabled>選んだ会員の会員証シールを印刷</button></div>
-  <div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="selAll" aria-label="表示中をすべて選ぶ"></th><th>会員番号</th><th>氏名</th><th class="hide-sm">性別</th><th>年会費</th><th class="hide-sm">最後の来店</th><th class="num hide-sm">来店回数</th><th class="num hide-sm">累計売上</th></tr></thead><tbody id="mList"></tbody></table></div>`;
+  <div class="tbl-wrap"><table><thead><tr><th><input type="checkbox" id="selAll" aria-label="表示中をすべて選ぶ"></th><th>会員番号</th><th>氏名</th><th class="hide-sm">性別</th><th>年会費</th><th class="hide-sm">最後の来店</th><th class="num hide-sm">来店回数</th>${isOwner()?`<th class="num hide-sm">累計売上</th>`:""}</tr></thead><tbody id="mList"></tbody></table></div>`;
+  if(MF.sort==="sum"&&!isOwner()) MF.sort="no";
   $("#ffee").value=MF.fee; $("#fgen").value=MF.gender; $("#fsort").value=MF.sort;
   const stats=memberStats();
   const sel=new Set();
@@ -620,7 +647,7 @@ function viewMembers(){
     else if(MF.sort==="away") arr.sort((a,b)=>(s(a.id).last||"0").localeCompare(s(b.id).last||"0"));
     else arr.sort((a,b)=>a.no.localeCompare(b.no));
     $("#mCount").textContent=`${arr.length}人を表示しています（全${S.members.length}人）`;
-    $("#mList").innerHTML=arr.length?arr.map(m=>{const fs=feeState(m),x=s(m.id);return `<tr class="clk" data-m="${m.id}"><td><input type="checkbox" data-sel="${m.id}" ${sel.has(m.id)?"checked":""} aria-label="${esc(m.no)}を選ぶ"></td><td>${esc(m.no)}</td><td class="wrap-sm">${esc(m.name)}</td><td class="hide-sm">${esc(m.gender)}</td><td><span class="badge ${fs.cls}">${fs.k==="ok"?"〜"+jdate(m.feeUntil):fs.text}</span></td><td class="hide-sm">${x.last?jdate(x.last):"—"}</td><td class="num hide-sm">${x.count}回</td><td class="num hide-sm">${yen(x.sum)}</td></tr>`;}).join(""):`<tr><td colspan="8" class="muted">条件に合う会員がいません</td></tr>`;
+    $("#mList").innerHTML=arr.length?arr.map(m=>{const fs=feeState(m),x=s(m.id);return `<tr class="clk" data-m="${m.id}"><td><input type="checkbox" data-sel="${m.id}" ${sel.has(m.id)?"checked":""} aria-label="${esc(m.no)}を選ぶ"></td><td>${esc(m.no)}</td><td class="wrap-sm">${esc(m.name)}</td><td class="hide-sm">${esc(m.gender)}</td><td><span class="badge ${fs.cls}">${fs.k==="ok"?"〜"+jdate(m.feeUntil):fs.text}</span></td><td class="hide-sm">${x.last?jdate(x.last):"—"}</td><td class="num hide-sm">${x.count}回</td>${isOwner()?`<td class="num hide-sm">${yen(x.sum)}</td>`:""}</tr>`;}).join(""):`<tr><td colspan="8" class="muted">条件に合う会員がいません</td></tr>`;
     $$("#mList tr[data-m]").forEach(t=>t.onclick=e=>{if(e.target.matches("input"))return;go("#/member/"+t.dataset.m);});
     $$("#mList [data-sel]").forEach(c=>c.onchange=()=>{const id=Number(c.dataset.sel);c.checked?sel.add(id):sel.delete(id);$("#printSel").disabled=!sel.size;$("#printSel").textContent=sel.size?`選んだ${sel.size}人の会員証シールを印刷`:"選んだ会員の会員証シールを印刷";});
     $("#selAll").checked=false;
@@ -640,17 +667,17 @@ function viewMembers(){
 /* ===== 会員の詳細 ===== */
 function viewMember(m){
   const fs=feeState(m), mv=S.visits.filter(v=>v.mid===m.id).sort((a,b)=>a.date<b.date?1:a.date>b.date?-1:(a.time<b.time?1:-1));
-  const paid=mv.filter(v=>v.amount!=null), sum=paid.reduce((a,v)=>a+v.amount,0), ppl=paid.reduce((a,v)=>a+v.men+v.women,0);
+  const paid=mv.filter(v=>v.amount!=null), sum=paid.reduce((a,v)=>a+v.amount,0), people=paid.reduce((a,v)=>a+ppl(v),0), own=isOwner();
   const fees=S.fees.filter(f=>f.mid===m.id).sort((a,b)=>a.date<b.date?1:-1);
   const bts=S.bottles.filter(b=>b.mid===m.id).sort((a,b)=>(a.status==="終了")-(b.status==="終了")||(a.opened<b.opened?1:-1));
   const ref=m.referrer?mByNo(m.referrer):null, introduced=S.members.filter(x=>x.referrer===m.no);
   $("#app").innerHTML=`<div class="row" style="justify-content:space-between;align-items:center;margin-bottom:12px">
     <h1 style="margin:0" id="mTitle">${esc(m.name)} <span class="muted" style="font-weight:500">${esc(m.no)}</span></h1>
     <div class="row"><a class="btn" href="#/member/${m.id}/edit">会員の情報を直す</a><a class="btn" href="#/print?ids=${m.id}">会員証シールを印刷</a></div></div>
-  <div class="grid g3" style="margin-bottom:16px">
+  <div class="grid ${own?"g3":"g2"}" style="margin-bottom:16px">
     <div class="card kpi"><div class="lb">来店回数</div><div class="v" id="mVisits">${mv.length}回</div><div class="s">前回 ${mv[0]?jdate(mv[0].date):"なし"}</div></div>
-    <div class="card kpi"><div class="lb">累計の売上</div><div class="v" id="mSales">${yen(sum)}</div><div class="s">年会費は含みません</div></div>
-    <div class="card kpi"><div class="lb">1人あたりの平均</div><div class="v" id="mAvg">${ppl?yen(Math.round(sum/ppl)):"—"}</div><div class="s">お連れさまを含む</div></div>
+    ${own?`<div class="card kpi"><div class="lb">累計の売上</div><div class="v" id="mSales">${yen(sum)}</div><div class="s">年会費は含みません</div></div>
+    <div class="card kpi"><div class="lb">1人あたりの平均</div><div class="v" id="mAvg">${people?yen(Math.round(sum/people)):"—"}</div><div class="s">お連れさまを含む</div></div>`:`<div class="card kpi"><div class="lb">キープ中のボトル</div><div class="v">${bts.filter(b=>b.status==="キープ中").length}本</div><div class="s">売上の数字はオーナーだけが見られます</div></div>`}
   </div>
   <div class="grid g2">
     <div class="card"><h2>会員の情報</h2>
@@ -682,8 +709,8 @@ function viewMember(m){
     <button class="btn" id="nbAdd">追加する</button></div>
   </div>
   <div class="card"><h2>来店の履歴</h2>
-    <div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="hide-sm">時刻</th><th class="num">人数</th><th class="num hide-sm">男/女</th><th class="num">お会計</th><th class="hide-sm">お支払い</th></tr></thead><tbody id="mHist">
-    ${mv.slice(0,30).map(v=>`<tr class="clk" data-go="#/visit/${v.id}"><td>${jdw(v.date)}</td><td class="hide-sm">${esc(v.time)}</td><td class="num">${v.men+v.women}名</td><td class="num hide-sm">${v.men}/${v.women}</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:yen(v.amount)}</td><td class="hide-sm">${esc(v.pay)}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">まだ来店がありません</td></tr>`}
+    <div class="tbl-wrap"><table><thead><tr><th>日付</th><th class="hide-sm">時刻</th><th class="num">人数</th><th class="num hide-sm">男/女(/他)</th><th class="num">お会計</th><th class="hide-sm">お支払い</th></tr></thead><tbody id="mHist">
+    ${mv.slice(0,30).map(v=>`<tr class="clk" data-go="#/visit/${v.id}"><td>${jdw(v.date)}</td><td class="hide-sm">${esc(v.time)}</td><td class="num">${ppl(v)}名</td><td class="num hide-sm">${v.men}/${v.women}${v.others?"/"+v.others:""}</td><td class="num">${v.amount==null?`<span class="badge b-blue">在店中</span>`:own?yen(v.amount):"会計済み"}</td><td class="hide-sm">${esc(v.pay)}</td></tr>`).join("")||`<tr><td colspan="6" class="muted">まだ来店がありません</td></tr>`}
     </tbody></table></div>
     ${mv.length>30?`<p class="muted">新しい30件を表示しています（全${mv.length}件）</p>`:""}
   </div>`;
@@ -691,7 +718,7 @@ function viewMember(m){
   $("#feeBtn").onclick=()=>{
     const until=nextUntil(m);
     if(!confirm(`${m.name}さまの年会費 ${yen(S.settings.feeAmount)} を受け取ったとして記録し、期限を ${jdate(until)} までにします。よろしいですか？`))return;
-    receiveFee(m);save();toast("年会費を記録しました");viewMember(m);
+    if(!receiveFee(m))return;save();toast("年会費を記録しました");viewMember(m);
   };
   $$("[data-fin]").forEach(b=>b.onclick=()=>{const bt=S.bottles.find(x=>x.id===Number(b.dataset.fin));bt.status="終了";bt.closed=TODAY;save();toast("ボトルを終了にしました");viewMember(m);});
   $("#nbAdd").onclick=()=>{
@@ -720,7 +747,7 @@ function viewMemberForm(m){
       <div class="fld"><label for="fMail">メール</label><input type="email" id="fMail" value="${esc(d.email)}"></div>
       <div class="fld"><label for="fRef">紹介者の会員番号</label><input type="text" id="fRef" value="${esc(d.referrer)}" placeholder="例 M0003"></div>
       <div class="fld"><label for="fJoined">入会日<span class="req">必須</span></label><input type="date" id="fJoined" value="${esc(d.joined)}" max="${TODAY}"></div>
-      <div class="fld"><label for="fUntil">年会費の期限<span class="req">必須</span></label><input type="date" id="fUntil" value="${esc(d.feeUntil)}"><span class="muted">${isNew?"入会日から1年を自動で入れます":"受け取りの記録は詳細画面のボタンから"}</span></div>
+      <div class="fld"><label for="fUntil">年会費の期限<span class="req">必須</span></label><input type="date" id="fUntil" value="${esc(d.feeUntil)}" ${!isNew&&!isOwner()?"disabled":""}><span class="muted">${isNew?"入会日から1年を自動で入れます":"受け取りの記録は詳細画面のボタンから"}</span></div>
       <div class="fld full"><label for="fMemo">メモ（お好み・席・注意点）</label><textarea id="fMemo">${esc(d.memo)}</textarea></div>
       ${isNew?`<label class="full" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="fFee" checked> 入会時に年会費（${yen(S.settings.feeAmount)}）を受け取った</label>`:""}
     </div>
@@ -783,14 +810,14 @@ function periodOf(){
 }
 function stats(f,t){
   const vs=S.visits.filter(v=>v.amount!=null&&v.date>=f&&v.date<=t);
-  const sales=vs.reduce((a,v)=>a+v.amount,0), men=vs.reduce((a,v)=>a+v.men,0), women=vs.reduce((a,v)=>a+v.women,0);
-  const guests=men+women;
+  const sales=vs.reduce((a,v)=>a+v.amount,0), men=vs.reduce((a,v)=>a+v.men,0), women=vs.reduce((a,v)=>a+v.women,0), others=vs.reduce((a,v)=>a+(v.others||0),0);
+  const guests=men+women+others;
   const fee=S.fees.filter(x=>x.date>=f&&x.date<=t).reduce((a,x)=>a+x.amount,0);
   const joined=S.members.filter(m=>m.joined>=f&&m.joined<=t).length;
-  return {vs,sales,groups:vs.length,guests,men,women,avg:guests?Math.round(sales/guests):0,avgG:vs.length?Math.round(sales/vs.length):0,fee,joined,memberGroups:vs.filter(v=>v.mid).length};
+  return {vs,sales,groups:vs.length,guests,men,women,others,avg:guests?Math.round(sales/guests):0,avgG:vs.length?Math.round(sales/vs.length):0,fee,joined,memberGroups:vs.filter(v=>v.mid).length};
 }
 function pct(a,b){if(!b)return "";const p=Math.round((a-b)/b*1000)/10;return `<span class="${p>=0?"up":"down"}">${p>=0?"+":""}${p}%</span>`;}
-function ratioTxt(s){return s.guests?`男性 ${Math.round(s.men/s.guests*100)}%・女性 ${100-Math.round(s.men/s.guests*100)}%`:"—";}
+function ratioTxt(s){if(!s.guests)return "—";const m=Math.round(s.men/s.guests*100),o=Math.round(s.others/s.guests*100);return `男性 ${m}%・女性 ${100-m-o}%`+(s.others?`・その他 ${o}%`:"");}
 function viewReport(){
   const P=periodOf(), cur=stats(P.f,P.t), prev=stats(P.pf,P.pt);
   const weekly=RP.mode==="week"||RP.mode==="lastweek";
@@ -801,10 +828,10 @@ function viewReport(){
   if(span>=0&&span<=62){for(let d=P.f;d<=P.t;d=addDays(d,1)) days.push({d,sum:cur.vs.filter(v=>v.date===d).reduce((a,v)=>a+v.amount,0)});}
   const maxD=Math.max(1,...days.map(x=>x.sum));
   const wd=[1,2,3,4,5,6,0].map(w=>{const vs=cur.vs.filter(v=>pd(v.date).getDay()===w);const n=new Set(vs.map(v=>v.date)).size;return {w,sum:vs.reduce((a,v)=>a+v.amount,0),groups:vs.length,days:n};});
-  const byM=new Map(); cur.vs.forEach(v=>{if(!v.mid)return;const x=byM.get(v.mid)||{n:0,sum:0,ppl:0};x.n++;x.sum+=v.amount;x.ppl+=v.men+v.women;byM.set(v.mid,x);});
+  const byM=new Map(); cur.vs.forEach(v=>{if(!v.mid)return;const x=byM.get(v.mid)||{n:0,sum:0,ppl:0};x.n++;x.sum+=v.amount;x.ppl+=ppl(v);byM.set(v.mid,x);});
   const rank=[...byM.entries()].sort((a,b)=>b[1].sum-a[1].sum).slice(0,10);
   const st=memberStats();
-  const away=S.members.filter(m=>feeState(m).k!=="over").map(m=>({m,last:(st.get(m.id)||{}).last||""})).filter(x=>!x.last||diffDays(TODAY,x.last)>=60).sort((a,b)=>(a.last||"0").localeCompare(b.last||"0")).reverse();
+  const away=S.members.filter(m=>feeState(m).k!=="over"&&diffDays(TODAY,m.joined)>=60).map(m=>({m,last:(st.get(m.id)||{}).last||""})).filter(x=>!x.last||diffDays(TODAY,x.last)>=60).sort((a,b)=>(a.last||a.m.joined).localeCompare(b.last||b.m.joined));
   const mm=TODAY.slice(5,7), bday=S.members.filter(m=>m.birth&&m.birth.slice(5,7)===mm).sort((a,b)=>a.birth.slice(8)<b.birth.slice(8)?-1:1);
   const kpi=(id,lb,v,pv,fmt)=>`<div class="card kpi"><div class="lb">${lb}</div><div class="v" id="${id}">${fmt(v)}</div><div class="s">前の期間 ${fmt(pv)} ${pct(v,pv)}</div></div>`;
   $("#app").innerHTML=`<h1>売上レポート</h1>
@@ -848,7 +875,7 @@ function viewReport(){
   </div>
   <div class="grid g2">
     <div class="card"><h2>しばらく来ていない会員（60日以上）</h2>
-      <p class="muted" style="margin-top:0">年会費が有効なのに60日以上ご来店のない会員です。ご案内の連絡先として使えます。</p>
+      <p class="muted" style="margin-top:0">年会費が有効なのに60日以上ご来店のない会員です（入会60日未満は除く・長く来ていない順）。ご案内の連絡先として使えます。</p>
       <p><b id="rAway">${away.length}人</b></p>
       <div class="tbl-wrap"><table><thead><tr><th>会員</th><th>最後の来店</th></tr></thead><tbody id="rAwayList">${away.slice(0,8).map(x=>`<tr class="clk" data-go="#/member/${x.m.id}"><td>${esc(x.m.no)} ${esc(x.m.name)}</td><td>${x.last?jdate(x.last)+`（${diffDays(TODAY,x.last)}日前）`:"来店なし"}</td></tr>`).join("")||`<tr><td colspan="2" class="muted">該当なし</td></tr>`}</tbody></table></div>
     </div>
@@ -867,7 +894,7 @@ function viewReport(){
   $("#rApply").onclick=()=>{const f=$("#rFrom").value,t=$("#rTo").value;if(!isDate(f)||!isDate(t)||f>t){toast("期間の「はじめ」と「おわり」を正しく入れてください");return;}RP.from=f;RP.to=t>TODAY?TODAY:t;viewReport();};
   $$("[data-go]").forEach(t=>t.onclick=()=>go(t.dataset.go));
   $("#csvSum").onclick=()=>csv(`売上集計_${P.f}_${P.t}.csv`,[["項目","この期間","前の期間"],["期間",`${P.f}〜${P.t}`,`${P.pf}〜${P.pt}`],["売上（飲食）",cur.sales,prev.sales],["来店組数",cur.groups,prev.groups],["来店客数",cur.guests,prev.guests],["客単価",cur.avg,prev.avg],["男性",cur.men,prev.men],["女性",cur.women,prev.women],["年会費",cur.fee,prev.fee],["新規入会",cur.joined,prev.joined],[],["会員番号","氏名","来店回数","売上"],...rank.map(([mid,x])=>[mById(mid).no,mById(mid).name,x.n,x.sum])]);
-  $("#csvDetail").onclick=()=>csv(`来店明細_${P.f}_${P.t}.csv`,[["日付","時刻","会員番号","氏名","男性","女性","お会計","お支払い","メモ"],...cur.vs.map(v=>{const m=v.mid?mById(v.mid):null;return [v.date,v.time,m?m.no:"",m?m.name:"会員以外",v.men,v.women,v.amount,v.pay,v.memo];})]);
+  $("#csvDetail").onclick=()=>csv(`来店明細_${P.f}_${P.t}.csv`,[["日付","時刻","会員番号","氏名","男性","女性","その他","お会計","お支払い","メモ"],...cur.vs.map(v=>{const m=v.mid?mById(v.mid):null;return [v.date,v.time,m?m.no:"",m?m.name:"会員以外",v.men,v.women,v.others||0,v.amount,v.pay,v.memo];})]);
   $("#csvAway").onclick=()=>csv(`しばらく来ていない会員_${TODAY}.csv`,[["会員番号","氏名","電話","最後の来店","年会費の期限"],...away.map(x=>[x.m.no,x.m.name,x.m.tel,x.last,x.m.feeUntil])]);
 }
 
@@ -884,7 +911,7 @@ function viewSettings(msg){
       <button class="btn pri" id="sSave">保存する</button>
     </div>
     <div class="card"><h2>スタッフと権限</h2>
-      <p class="muted" style="margin-top:0">オーナー＝すべての画面／スタッフ＝来店受付・会計・会員・ボトルだけ（売上レポート・CSV・設定は見られません）</p>
+      <p class="muted" style="margin-top:0">オーナー＝すべての画面／スタッフ＝来店受付・会計・会員・ボトルだけ。スタッフは売上の合計・会員ごとの累計売上・売上レポート・CSV・設定を見られず、会計済みの記録の修正や来店記録の削除もできません（会計の入力のため、本日の一覧の金額は見えます）。</p>
       <div class="tbl-wrap" style="margin-bottom:12px"><table><thead><tr><th>名前</th><th class="hide-sm">メール</th><th>権限</th><th></th></tr></thead><tbody id="userList">
       ${S.users.map(u=>`<tr><td>${esc(u.name)}</td><td class="hide-sm">${esc(u.email)}</td><td><select data-ur="${u.id}" ${u.id===ME.id?"disabled":""} aria-label="権限"><option value="owner" ${u.role==="owner"?"selected":""}>オーナー</option><option value="staff" ${u.role==="staff"?"selected":""}>スタッフ</option></select></td><td>${u.id===ME.id?`<span class="muted">本人</span>`:`<button class="btn sm danger" data-ud="${u.id}">削除</button>`}</td></tr>`).join("")}
       </tbody></table></div>
@@ -899,7 +926,7 @@ function viewSettings(msg){
   </div>`;
   $("#sSave").onclick=()=>{
     const f=$("#sFee").value, b=$("#sBottle").value; const errs=[];
-    if(!/^\d+$/.test(f)) errs.push("年会費は0以上の整数（円）で入力してください");
+    if(!/^\d+$/.test(f)||Number(f)>1000000) errs.push("年会費は0〜1,000,000円の整数で入力してください");
     if(!/^\d+$/.test(b)||Number(b)<1||Number(b)>36) errs.push("ボトルの保管期間は1〜36か月で入力してください");
     if(errs.length){$("#serr").innerHTML=`<div class="err">${errs.join("<br>")}</div>`;return;}
     S.settings.feeAmount=Number(f);S.settings.bottleMonths=Number(b);save();toast("設定を保存しました");viewSettings();
@@ -939,7 +966,7 @@ function importPreview(text){
   if(!rows.length){box.innerHTML=`<div class="err">ファイルが空です</div>`;return;}
   const head=rows[0].map(h=>h.trim()); const ix=Object.fromEntries(IMP_COLS.map(c=>[c,head.indexOf(c)]));
   if(ix["氏名"]<0){box.innerHTML=`<div class="err">1行目に「氏名」の列が見つかりません。ひな形の1行目をそのまま使ってください。</div>`;return;}
-  const ok=[], bad=[]; const used=new Set(S.members.map(m=>m.no));
+  const ok=[], bad=[], seen=new Set(); const used=new Set(S.members.map(m=>m.no));
   let seqN=Number(nextNo().slice(1));
   rows.slice(1).forEach((r,k)=>{
     const g=c=>ix[c]>=0?String(r[ix[c]]??"").trim():"";
@@ -952,6 +979,10 @@ function importPreview(text){
     if(joined==="") joined=TODAY;
     let until=normDate(g("年会費の期限")); if(until===null) errs.push("年会費の期限の形が違います");
     if(until===""&&joined) until=addDays(addYears(joined,1),-1);
+    if(until&&joined&&until<joined) errs.push("年会費の期限が入会日より前です");
+    const key=name+"|"+g("電話");
+    if(name&&(S.members.some(x=>x.name+"|"+x.tel===key)||seen.has(key))) errs.push("同じ氏名・電話の会員がすでにいます（二重の取り込み）");
+    seen.add(key);
     let no=g("会員番号");
     if(no){no=normNo(no);if(!/^M\d{4,6}$/.test(no))errs.push("会員番号の形が違います");else if(used.has(no))errs.push(`会員番号 ${no} はすでに使われています`);}
     if(errs.length){bad.push({line,name,errs});return;}
@@ -980,15 +1011,15 @@ function viewPrint(){
 
 /* ===== CSV ===== */
 function csv(name,rows){
-  const body=rows.map(r=>r.map(x=>{const s=String(x??"");return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(",")).join("\r\n");
+  const body=rows.map(r=>r.map(x=>{let s=String(x??"");if(typeof x==="string"&&/^[=+\-@\t\r]/.test(s))s="'"+s;return /[",\r\n]/.test(s)?`"${s.replace(/"/g,'""')}"`:s;}).join(",")).join("\r\n");
   const blob=new Blob(["﻿"+body],{type:"text/csv"});
   const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=name;document.body.appendChild(a);a.click();
   setTimeout(()=>{URL.revokeObjectURL(a.href);a.remove();},500);
 }
 
-$("#resetData").onclick=()=>{if(!confirm("入力した内容を消して、デモのデータを最初の状態に戻します。よろしいですか？"))return;try{localStorage.removeItem(KEY);}catch(e){}S=seedData();save();SCAN=null;MF=null;toast("最初の状態に戻しました");render();};
+$("#resetData").onclick=()=>{if(!confirm("入力した内容を消して、デモのデータを最初の状態に戻します。よろしいですか？"))return;try{localStorage.removeItem(KEY);}catch(e){}S=seedData();save(true);SCAN=null;MF=null;toast("最初の状態に戻しました");render();};
 
-S=load(); save();
+S=load(); save(true);
 ME=loadMe();
 window.addEventListener("hashchange",render);
 render();

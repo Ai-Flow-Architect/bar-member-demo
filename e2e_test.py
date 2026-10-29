@@ -22,7 +22,8 @@ TODAY = "2026-10-29"
 URL = BASE + "?today=" + TODAY
 SHOTS = HERE / "shots"
 SHOTS.mkdir(exist_ok=True)
-KEY = "bar_member_demo_v1"
+KEY = "bar_member_demo_v1_test"  # ?today= 付きで開くと試験用の保存場所を使う
+REAL_KEY = "bar_member_demo_v1"
 errors, results = [], []
 
 
@@ -135,12 +136,12 @@ with sync_playwright() as p:
     check(f"超過日数の表示 ({over_days}日)", f"{over_days}日超過" in pg.inner_text("#feeAlert"))
     check("警告時は「年会費を受け取って来店」ボタンがある", pg.is_visible("#btnFeeIn") and pg.is_visible("#btnIn"))
     pg.screenshot(path=str(SHOTS / "02_scan_expired.png"), full_page=True)
-    w0 = int(pg.inner_text("#stWomen"))
+    w0 = int(pg.inner_text("#st_women"))
     if w0 == 0:
         pg.click("[data-st='women'][data-d='1']")
     else:
         pg.click("[data-st='men'][data-d='1']")
-    check(f"人数を増やせる（性別の初期値＝{m7['gender']}・合計2名）", int(pg.inner_text("#stWomen")) + int(pg.inner_text("#stMen")) == 2 and (m7["gender"] == "男性") == (w0 == 0))
+    check(f"人数を増やせる（性別の初期値＝{m7['gender']}・合計2名）", int(pg.inner_text("#st_women")) + int(pg.inner_text("#st_men")) == 2 and (m7["gender"] == "男性") == (w0 == 0))
     pg.click("#btnFeeIn")
     pg.wait_for_timeout(200)
     S = state(pg)
@@ -174,8 +175,9 @@ with sync_playwright() as p:
     scan(pg, "1")
     check("M0001 のキープ中ボトルが受付に出る", "シングルモルト 12年" in pg.inner_text("#scanBottles"))
     check("M0001 のメモが受付に出る", pg.is_visible("text=ハイボールは濃いめ"))
-    if pg.inner_text("#stMen") == "1":
-        pg.click("[data-st='men'][data-d='-1']")
+    for k in ("men", "women", "others"):
+        if pg.inner_text(f"#st_{k}") == "1":
+            pg.click(f"[data-st='{k}'][data-d='-1']")
     pg.click("#btnIn")
     check("人数0では記録しない", pg.is_visible("text=人数を1名以上にしてください") and pg.is_visible("#mcard"))
     pg.click("#scanClose")
@@ -205,6 +207,26 @@ with sync_playwright() as p:
     check("会計で本日の売上が 32,000円 増える", num(pg.inner_text("#kSales")) == sales0 + 32000)
     vv = next(v for v in state(pg)["visits"] if v["id"] == v7)
     check("お支払い方法がカードで保存", vv["pay"] == "カード" and vv["amount"] == 32000)
+    pg.goto(URL + f"#/visit/{v7}")
+    pg.wait_for_selector("#vSave")
+    pg.fill("#vAmount", "99999999999")
+    pg.click("#vSave")
+    check("桁違いの金額（1,000万円超）は止める", pg.is_visible("text=お会計が1,000万円を超えています。桁をお確かめください"))
+    pg.fill("#vAmount", "33000")
+    pg.click("#vSave")
+    pg.wait_for_selector("#scan")
+    pg.goto(URL + f"#/visit/{v7}")
+    pg.wait_for_selector("#vSave")
+    check("会計済みを直すと修正の記録（直した人・修正前の金額）が残る", pg.is_visible("#vEdits") and "甲野 太郎" in pg.inner_text("#vEdits") and "32,000円" in pg.inner_text("#vEdits"))
+    pg.goto(URL + f"#/member/{m7['id']}")
+    pg.wait_for_selector("#feeBtn")
+    until_before = pg.inner_text("#mFeeUntil")
+    pg.once("dialog", lambda dg: dg.accept())
+    pg.click("#feeBtn")
+    pg.wait_for_timeout(200)
+    check("同じ日に年会費を2回受け取れない（期限が2年延びない）", pg.inner_text("#mFeeUntil") == until_before and pg.is_visible("text=本日すでに受け取りの記録があります"))
+    pg.goto(URL + "#/home")
+    pg.wait_for_selector("#scan")
 
     # ビジター
     pg.click("#visitorBtn")
@@ -287,7 +309,8 @@ with sync_playwright() as p:
     check("入力漏れを全部表示", all(pg.is_visible(f"text={t}") for t in ["氏名を入力してください", "性別を選んでください"]))
     pg.fill("#fNo", "1")
     pg.fill("#fName", "<b>テスト</b> 会員")
-    pg.click("#fGender >> text=女性")
+    pg.click("#fGender >> text=その他")
+    pg.fill("#fMemo", "=1+1")
     pg.click("#fSave")
     check("同じ会員番号はエラー", pg.is_visible("text=同じ会員番号の会員がすでにいます"))
     pg.fill("#fNo", "M0121")
@@ -305,7 +328,23 @@ with sync_playwright() as p:
     check("入会時の年会費が記録される", len(pg.query_selector_all("#feeList tr")) == 1 and "2027/09/30" in pg.inner_text("#feeList"))
     scan(pg, "121")
     check("登録した会員をすぐ受付で呼び出せる", "テスト" in pg.inner_text("#scanName"))
-    pg.click("#scanClose")
+    check("性別「その他」の会員は女性に数えない（その他1・女性0）", pg.inner_text("#st_others") == "1" and pg.inner_text("#st_women") == "0" and pg.inner_text("#st_men") == "0")
+    pg.click("#btnIn")
+    pg.wait_for_timeout(200)
+    v121 = max(v["id"] for v in state(pg)["visits"])
+    pg.goto(URL + f"#/visit/{v121}")
+    pg.wait_for_selector("#vSave")
+    pg.fill("#vAmount", "10000")
+    pg.click("#vSave")
+    pg.wait_for_selector("#scan")
+    vv = next(v for v in state(pg)["visits"] if v["id"] == v121)
+    check("その他の人数で来店・会計が記録される", vv["others"] == 1 and vv["women"] == 0 and vv["amount"] == 10000)
+    pg.goto(URL + "#/members")
+    pg.wait_for_selector("#mList tr")
+    with pg.expect_download() as dl:
+        pg.click("#mCsv")
+    text = Path(dl.value.path()).read_text(encoding="utf-8-sig")
+    check("CSVで先頭が = の欄は数式として動かない（' を付ける）", ",'=1+1" in text and ",=1+1" not in text)
 
     # ── ボトル一覧
     pg.click("nav >> text=ボトルキープ")
@@ -330,7 +369,7 @@ with sync_playwright() as p:
     def stat(f, t):
         vs = [v for v in S["visits"] if v["amount"] is not None and f <= v["date"] <= t]
         sales = sum(v["amount"] for v in vs)
-        guests = sum(v["men"] + v["women"] for v in vs)
+        guests = sum(v["men"] + v["women"] + v.get("others", 0) for v in vs)
         men = sum(v["men"] for v in vs)
         return vs, sales, guests, men
 
@@ -340,6 +379,7 @@ with sync_playwright() as p:
     check(f"今月の客数が一致 ({guests}名)", num(pg.inner_text("#rGuests")) == guests)
     check(f"客単価＝売上÷客数 ({round(sales / guests):,}円)", num(pg.inner_text("#rAvg")) == round(sales / guests))
     mp = round(men / guests * 100)
+    check("男女比に「その他」が別に出る", "その他" in pg.inner_text("#rRatio"))
     check(f"男女比が一致 (男性{mp}%)", f"男性 {mp}%" in pg.inner_text("#rRatio"))
     _, psales, _, _ = stat("2026-09-01", "2026-09-29")
     check(f"前の期間（先月の同じ日まで）と比較 ({psales:,}円)", f"{psales:,}円" in pg.inner_text("#rSales >> xpath=.."))
@@ -363,7 +403,10 @@ with sync_playwright() as p:
     for v in S["visits"]:
         if v["mid"] and v["date"] > last.get(v["mid"], ""):
             last[v["mid"]] = v["date"]
-    away = [m for m in S["members"] if m["feeUntil"] >= TODAY and (m["id"] not in last or (d(TODAY) - d(last[m["id"]])).days >= 60)]
+    away = [m for m in S["members"] if m["feeUntil"] >= TODAY and (d(TODAY) - d(m["joined"])).days >= 60 and (m["id"] not in last or (d(TODAY) - d(last[m["id"]])).days >= 60)]
+    away.sort(key=lambda m: last.get(m["id"], m["joined"]))
+    check(f"しばらく来ていない会員の先頭は一番長く来ていない人 ({away[0]['no']})", away[0]["no"] in pg.query_selector_all("#rAwayList tr")[0].inner_text())
+    check("入会60日未満の会員（今月登録のM0121）は入らない", "M0121" not in pg.inner_text("#rAwayList"))
     check(f"60日以上来ていない会員の人数が一致 ({len(away)}人)", num(pg.inner_text("#rAway")) == len(away))
     clip = pg.evaluate("[...document.querySelectorAll('.tbl-wrap')].filter(e=>e.scrollWidth>e.clientWidth+1).length")
     check(f"PCのレポートで表が横に切れない (切れ={clip})", clip == 0)
@@ -428,14 +471,16 @@ with sync_playwright() as p:
                ",,なし,男性,,,,,\r\n" \
                ",戌亥 太,いぬい ふとし,不明,,,,,\r\n" \
                "M0001,重複 太郎,,男性,,,,,\r\n" \
-               ",日付 違い,,女性,1990/13/40,,,,\r\n"
+               ",日付 違い,,女性,1990/13/40,,,,\r\n" \
+               ",期限 逆,,女性,,,2026-05-01,2026-04-01,\r\n" \
+               ",子安 一,こやす はじめ,男,1985/4/1,090-1111-2222,2025/11/03,,窓際\r\n"
     imp = HERE / "shots" / "_import_test.csv"
     imp.write_text(csv_text, encoding="utf-8")
     pg.set_input_files("#impFile", str(imp))
     pg.wait_for_selector("#impSummary")
-    check("取り込み：正しい2件・直す4件", pg.inner_text("#impSummary") == "取り込める行：2件／直す必要がある行：4件")
+    check("取り込み：正しい2件・直す6件", pg.inner_text("#impSummary") == "取り込める行：2件／直す必要がある行：6件")
     et = pg.inner_text("#impErrors")
-    check("取り込み：行番号つきで理由を表示", all(s in et for s in ["4行目", "氏名が空です", "5行目", "性別は", "6行目", "M0001 はすでに使われています", "7行目", "生年月日の形が違います"]))
+    check("取り込み：行番号つきで理由を表示", all(s in et for s in ["4行目", "氏名が空です", "5行目", "性別は", "6行目", "M0001 はすでに使われています", "7行目", "生年月日の形が違います", "8行目", "年会費の期限が入会日より前です", "9行目", "二重の取り込み"]))
     pg.click("#impGo")
     pg.wait_for_timeout(200)
     S = state(pg)
@@ -455,6 +500,8 @@ with sync_playwright() as p:
     # ── スタッフの権限
     login(pg, "staff@example.com")
     check("スタッフは3つの画面だけ", len(pg.query_selector_all("#nav a")) == 3)
+    check("スタッフの受付には本日の売上・客単価が出ない", pg.query_selector("#kSales") is None and pg.query_selector("#kAvg") is None)
+    check("スタッフにはデータを消すボタンが出ない", not pg.is_visible("#resetData"))
     pg.goto(URL + "#/report")
     pg.wait_for_timeout(150)
     check("売上レポートはURL直打ちでも拒否", pg.is_visible("text=この画面を開く権限がありません"))
@@ -465,9 +512,20 @@ with sync_playwright() as p:
     pg.wait_for_selector("#mList tr")
     check("スタッフには会員CSVのボタンが無い", pg.query_selector("#mCsv") is None)
     check("前の人の絞り込みが残らない", pg.input_value("#fq") == "" and pg.input_value("#ffee") == "")
+    check("スタッフの会員一覧に累計売上の列と並び替えが無い", "累計売上" not in pg.inner_text("#app"))
+    pg.goto(URL + "#/member/1")
+    pg.wait_for_selector("#mVisits")
+    check("スタッフの会員詳細に累計売上・会計額が出ない", pg.query_selector("#mSales") is None and "円" not in pg.inner_text("#mHist"))
+    pg.goto(URL + "#/member/1/edit")
+    pg.wait_for_selector("#fSave")
+    check("スタッフは年会費の期限を手で変えられない", pg.eval_on_selector("#fUntil", "e=>e.disabled"))
     pg.goto(URL + f"#/visit/{v7}")
+    pg.wait_for_timeout(150)
+    check("スタッフは会計済みの記録を直せない（URL直打ちでも）", pg.is_visible("text=会計済みの記録は直せません") and pg.query_selector("#vSave") is None)
+    open_v = next(v for v in state(pg)["visits"] if v["amount"] is None)
+    pg.goto(URL + f"#/visit/{open_v['id']}")
     pg.wait_for_selector("#vSave")
-    check("スタッフは来店記録を削除できない", pg.query_selector("#vDel") is None)
+    check("スタッフも在店中の会計はできる・削除ボタンは無い", pg.is_visible("text=会計を確定する") and pg.query_selector("#vDel") is None)
     pg.click("text=ログアウト")
 
     # ── 印刷（会員証シール）
@@ -487,16 +545,46 @@ with sync_playwright() as p:
     pg.emulate_media(media="screen")
     pg.screenshot(path=str(SHOTS / "07_print.png"), full_page=True)
 
-    # ── 日付が変わっても状態が保たれる（1週間後に開く）
+    # ── 日付が変わった時（入力済みのデータ）
+    open_before = [v for v in state(pg)["visits"] if v["amount"] is None]
     pg2 = ctx.new_page()
-    pg2.goto(BASE + "?today=2026-11-05#/login")
+    pg2.goto(BASE + "?today=2026-10-30#/login")
     pg2.click("[data-quick='1']")
     pg2.wait_for_selector("#scan")
     S2 = state(pg2)
-    over2 = sum(1 for m in S2["members"] if m["feeUntil"] < "2026-11-05")
-    check(f"日付をずらしても期限切れの人数は同じ見え方 ({over2}人)", num(pg2.inner_text("#nOver")) == over2)
+    open_after = [v for v in S2["visits"] if v["amount"] is None]
+    check(f"翌日（0時またぎ）に開いても在店中は消えない（{len(open_before)}組・日付は10/29のまま）", num(pg2.inner_text("#kIn")) == len(open_before) == len(open_after) and all(v["date"] == "2026-10-29" for v in open_after))
+    check("前日からの在店中は日付つきで一覧に出て会計できる", "10/29" in pg2.inner_text("#todayList") and pg2.is_visible("#todayList >> text=会計する"))
+    mid_open = next(v["mid"] for v in open_after if v["mid"])
+    no_open = next(m["no"] for m in S2["members"] if m["id"] == mid_open)
+    pg2.fill("#scan", no_open)
+    pg2.press("#scan", "Enter")
+    pg2.wait_for_timeout(150)
+    check("在店中の会員を翌日に読み取っても二重に来店を作らない", pg2.is_visible("#already") and pg2.query_selector("#btnIn") is None)
+    pg2.goto(BASE + "?today=2026-11-05#/home")
+    pg2.wait_for_selector("#scan")
+    S3 = state(pg2)
+    sun = [v for v in S3["visits"] if date.fromisoformat(v["date"]).weekday() == 6 and v["amount"] is not None]
+    check(f"1週間後に開いても日曜定休の並びが崩れない（日曜の会計 {len(sun)}件）", len(sun) == 0)
+    over3 = sum(1 for m in S3["members"] if m["feeUntil"] < "2026-11-05")
+    check(f"日付をずらしても期限切れの人数が画面と一致 ({over3}人)", num(pg2.inner_text("#nOver")) == over3)
     pg2.close()
+    check("日付指定の試験はふだんのデータに書き込まない", pg.evaluate(f"localStorage.getItem('{REAL_KEY}')") is None)
     pg.goto(URL + "#/home")
+
+    # ── 何も入力していなければ、開いた日の見本を作り直す
+    fresh = b.new_context(color_scheme="dark", locale="ja-JP")
+    fp = fresh.new_page()
+    fp.goto(BASE + "?today=2026-10-29#/login")
+    fp.wait_for_selector("#loginBtn")
+    fp.goto(BASE + "?today=2026-11-02#/login")
+    fp.wait_for_selector("#loginBtn")
+    F = fp.evaluate(f"JSON.parse(localStorage.getItem('{KEY}'))")
+    check("未入力なら開いた日の見本になる（今日の来店4組が今日の日付）", F["seededFor"] == "2026-11-02" and sum(1 for v in F["visits"] if v["date"] == "2026-11-02") == 4)
+    fp.goto(BASE + "#/login")
+    fp.wait_for_selector("#loginBtn")
+    check("ふだんのURLはふだんの保存場所を使う", fp.evaluate(f"localStorage.getItem('{REAL_KEY}')") is not None)
+    fresh.close()
 
     # ── スマホ幅
     m = b.new_context(viewport={"width": 390, "height": 844}, color_scheme="dark", is_mobile=True, has_touch=True, locale="ja-JP")
@@ -525,7 +613,8 @@ with sync_playwright() as p:
     mp.screenshot(path=str(SHOTS / "16_sp_scan.png"), full_page=True)
 
     # ── データを最初に戻す
-    pg.goto(URL + "#/login")
+    pg.goto(URL + "#/home")
+    pg.wait_for_selector("#scan")
     pg.once("dialog", lambda dg: dg.accept())
     pg.click("#resetData")
     n = pg.evaluate(f"JSON.parse(localStorage.getItem('{KEY}')).members.length")
